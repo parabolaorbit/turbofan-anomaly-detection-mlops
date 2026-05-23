@@ -1,0 +1,14 @@
+model:
+  version: "lstm_ae_v1"
+  path: "models/anomaly_api_model.pt"
+  scaler_path: "models/scaler.pkl"
+
+inference:
+  seq_len: 10
+  rolling_window: 10
+  threshold: 0.8
+  consecutive_window: 5
+
+logging:
+  prediction_log_path: "logs/predictions.jsonl"
+  sqlite_path: "logs/predictions.db"

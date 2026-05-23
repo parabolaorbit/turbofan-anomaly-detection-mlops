@@ -1,0 +1,15 @@
+services:
+  anomaly-api:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: anomaly-api
+    ports:
+      - "8080:8000"
+    volumes:
+      - ../logs:/app/logs
+      - ../models:/app/models
+      - ../config:/app/config
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000

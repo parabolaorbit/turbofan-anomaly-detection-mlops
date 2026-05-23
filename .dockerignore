@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Git
+.git/
+
+#venv
+.venv/
+venv/
+
+# models
+models/*.pt
+models/*.pkl
+
+# streamlit
+.streamlit/
+
+# VSCode
+.vscode/
+
+# notebook checkpoints
+.ipynb_checkpoints/
+
+# logs
+logs/
+*.jsonl
+*.db
+
+# Outputs
+outputs/
+
+# Data
+data/raw/*.pdf
+
+# OS
+.DS_Store
+Thumb.db
+
