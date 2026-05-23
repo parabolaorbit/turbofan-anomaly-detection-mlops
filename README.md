@@ -79,7 +79,7 @@ but also on operational AI system design including:
 ├── data/
 │   ├── raw/                    # NASA turbofan raw data
 │   └── test_sequence.csv       # batch/API test input
-├── Docker/
+├── docker/
 │   ├── docker-compose.yml
 │   └── dockerfile
 ├── logs/
