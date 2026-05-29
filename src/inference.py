@@ -11,14 +11,14 @@ import yaml
 from src.dataset import FEATURE_COLUMNS, add_cycle_norm, create_sequences
 from src.metrics import reconstruction_error
 from src.model import build_model
-
+from core.config import settings
 
 CONFIG_PATH = Path("config/config.yaml")
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
      
-DEFAULT_MODEL_PATH = Path(CONFIG["model"]["path"])
-DEFAULT_SCALER_PATH = Path(CONFIG["model"]["scaler_path"])
+DEFAULT_MODEL_PATH = settings.model_path
+DEFAULT_SCALER_PATH = settings.scaler_path
 
 
 def load_artifacts(
@@ -121,14 +121,14 @@ def extract_latent_with_cycle(
     return pd.concat(rows, ignore_index=True)
 
 
-def predict_anomaly(
+def predict_anomaly_batch(
     sequence: pd.DataFrame,
     model: torch.nn.Module,
     scaler,
     seq_len: int = 10,
     feature_cols: list[str] | None = None,
     rolling_window: int = 10,
-    threshold: float = 0.8,
+    threshold: float = settings.threshold,
     consecutive_window: int = 5,
 ) -> pd.DataFrame:
     feature_cols = feature_cols or FEATURE_COLUMNS
@@ -140,6 +140,43 @@ def predict_anomaly(
     data = data.sort_values(["unit_number", "time_in_cycles"]).reset_index(drop=True)
     data[feature_cols] = scaler.transform(data[feature_cols])
 
+    result = evaluate_with_cycle(
+        model,
+        data,
+        seq_len=seq_len,
+        feature_cols=feature_cols,
+    )
+    if result.empty:
+        return result
+
+    result["rolling_error"] = result.groupby("unit_number")["error"].transform(
+        lambda x: x.rolling(window=rolling_window, min_periods=1).mean()
+    )
+    result["alert"] = result["rolling_error"] > threshold
+
+    alert_group = result.groupby("unit_number")["alert"].transform(
+        lambda x: (x != x.shift()).cumsum()
+    )
+    result["consecutive"] = (
+        result["alert"]
+        .astype(int)
+        .groupby([result["unit_number"], alert_group])
+        .cumsum()
+    )
+    result["final_alert"] = result["consecutive"] >= consecutive_window
+
+    return result.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+def predict_anomaly_one(
+    sequence: pd.DataFrame,
+    model: torch.nn.Module,
+    seq_len: int = 10,
+    feature_cols: list[str] | None = None,
+    rolling_window: int = 10,
+    threshold: float = settings.threshold,
+    consecutive_window: int = 5,
+) -> pd.DataFrame:
+    data = sequence.copy()
     result = evaluate_with_cycle(
         model,
         data,

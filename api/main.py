@@ -2,19 +2,23 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-
-import time
-import numpy as np
-import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter, Depends, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from src.prediction_logger import save_prediction_log
+from sqlalchemy.orm import Session
 
-from src.inference import DEFAULT_MODEL_PATH, DEFAULT_SCALER_PATH, load_artifacts, predict_anomaly
+from src.inference import DEFAULT_MODEL_PATH, DEFAULT_SCALER_PATH, load_artifacts
 from src.sqlite_logger import save_prediction_log_to_sqlite
+from db.database import SessionLocal, engine
+from db.models import Base
+from db.crud import create_prediction_log
+from repositories.prediction_log_repository import PredictionLogRepository
 import yaml
+from services.prediction_service import PredictionService
 
-MODEL_VERSION = "v1"
+
 CONFIG_PATH = Path("config/config.yaml")
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
@@ -26,10 +30,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Turbofan Anomaly API")
+router = APIRouter()
+# Base.metadata.create_all(bind=engine)
 
 model = None
 scaler = None
-feature_cols = None
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 class SensorRecord(BaseModel):
     unit_number: int
@@ -82,6 +94,7 @@ def startup() -> None:
         return
 
     model, scaler, feature_cols = load_artifacts()
+    PredictionService.feature_cols = feature_cols
     logger.info("Loaded model artifacts.")
 
 
@@ -92,88 +105,36 @@ def health_check():
         "model_loaded": model is not None and scaler is not None,
     }
 
+@router.post("/predict_batch")
+def predict_batch(
+    request: PredictRequest,
+    db: Session = Depends(get_db)
+):
+    pass
 
-@app.post("/predict")
-def predict(request: PredictRequest):
+@router.post("/predict")
+async def predict(
+    request: PredictRequest,
+    db: Session = Depends(get_db)
+):
     if model is None or scaler is None or feature_cols is None:
         raise HTTPException(
             status_code=503,
             detail="Model artifacts are not loaded. Run `python -m src.train` and rebuild the image.",
         )
-    start_time = time.perf_counter()
+    
     try:
         logger.info("Received prediction request")
-        request_data = dump_request(request)
-        sequence_df = pd.DataFrame(request_data["sequence"])
+        repository = PredictionLogRepository(db)
 
-        result = predict_anomaly(
-            sequence_df,
+        service = PredictionService(
+            repository=repository,
             model=model,
             scaler=scaler,
-            feature_cols=feature_cols,
-            seq_len=request.seq_len,
-            rolling_window=request.rolling_window,
             threshold=request.threshold,
-            consecutive_window=request.consecutive_window,
-        )
-        if result.empty:
-            raise HTTPException(
-                status_code=400,
-                detail="No prediction rows were created. Check sequence length and input rows.",
-            )
-        latency_ms = (time.perf_counter() - start_time) * 1000
-
-        latest = result.sort_values(["unit_number", "time_in_cycles"]).iloc[-1]
-        severity = "normal"
-        if bool(latest["final_alert"]):
-            severity = "critical"
-        elif bool(latest["alert"]):
-            severity = "warning"
-
-        sensor_errors = latest[[c for c in result.columns if c.startswith("sensor_error_")]]
-        top_sensor_errors = [
-            {
-                "sensor": sensor_name.replace("sensor_error_", ""),
-                "error": float(error_value),
-            }
-            for sensor_name, error_value in sensor_errors.sort_values(ascending=False).head(5).items()
-        ]
-
-        sensor_ms2_mean = sequence_df["sensor_ms2"].mean()
-        sensor_ms3_mean = sequence_df["sensor_ms3"].mean()
-        sensor_ms4_mean = sequence_df["sensor_ms4"].mean()
-
-        response = {
-            "unit_number": int(latest["unit_number"]),
-            "time_in_cycles": int(latest["time_in_cycles"]),
-            "error": float(latest["error"]),
-            "rolling_error": float(latest["rolling_error"]),
-            "threshold": request.threshold,
-            "alert": bool(latest["alert"]),
-            "final_alert": bool(latest["final_alert"]),
-            "severity": severity,
-            "top_sensor_errors": top_sensor_errors,
-            "model_version": MODEL_VERSION,
-            "latency_ms": latency_ms,
-            "sensor_ms2_mean": sensor_ms2_mean,
-            "sensor_ms3_mean": sensor_ms3_mean,
-            "sensor_ms4_mean": sensor_ms4_mean,
-        }
-
-        save_prediction_log(
-            log_path=PREDICTION_LOG_PATH,
-            input_data=dump_request(request),
-            prediction_result=response,
-            model_version=MODEL_VERSION,
         )
 
-        save_prediction_log_to_sqlite(
-            db_path=SQLITE_PATH,
-            input_data=dump_request(request),
-            prediction_result=response,
-            model_version=MODEL_VERSION,
-        )
-
+        response = service.predict(dump_request(request))
         return response
     except HTTPException:
         raise
@@ -183,3 +144,6 @@ def predict(request: PredictRequest):
     except Exception as e:
         logger.exception("Prediction failed")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+app.include_router(router)
