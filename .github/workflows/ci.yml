@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    run-on: ubuntu-latest
+    runs-on: ubuntu-latest
 
     services:
       postgres:
@@ -16,7 +16,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: anomaly_db
         ports:
-          5432:5432
+          - 5432:5432
         options: >-
           --health-cmd="pg_isready -U postgres -d anomaly_db"
           --health-internal=10s
@@ -42,7 +42,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: RUn migrations
+      - name: Run migrations
         run: |
           alembic upgrade head
 
