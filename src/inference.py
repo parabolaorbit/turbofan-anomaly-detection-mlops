@@ -26,6 +26,9 @@ def load_artifacts(
     scaler_path: str | Path = DEFAULT_SCALER_PATH,
     device: str = "cpu",
 ):
+    """
+    アーティファクト(config.yaml)の読み込み
+    """
     checkpoint = torch.load(model_path, map_location=device)
     feature_cols = checkpoint.get("feature_cols", FEATURE_COLUMNS)
     hidden_dim = checkpoint.get("hidden_dim", 10)
@@ -47,10 +50,15 @@ def evaluate_with_cycle(
     seq_len: int,
     feature_cols: list[str] | None = None,
 ) -> pd.DataFrame:
+    """
+    unit_numberごとの損失関数出力結果を取得
+    """
     feature_cols = feature_cols or FEATURE_COLUMNS
+    # unit_number, time_in_cyclesでソート
     data = data.sort_values(["unit_number", "time_in_cycles"])
     rows = []
 
+    # unit_numberごとに損失関数を計算
     for unit_id in data["unit_number"].unique():
         unit_df = data[data["unit_number"] == unit_id].sort_values("time_in_cycles")
         unit_seq = create_sequences(unit_df, seq_len=seq_len, feature_cols=feature_cols)
@@ -61,8 +69,7 @@ def evaluate_with_cycle(
         unit_tensor = torch.tensor(unit_seq, dtype=torch.float32)
         errors = reconstruction_error(model, unit_tensor).numpy()
 
-        result = pd.DataFrame(
-            {
+        result = pd.DataFrame({
                 "unit_number": unit_id,
                 "time_in_cycles": unit_df["time_in_cycles"].values[seq_len - 1 :],
                 "cycle": unit_df["time_in_cycles"].values[seq_len - 1 :],
@@ -71,10 +78,12 @@ def evaluate_with_cycle(
             }
         )
 
+        #損失関数計算
         with torch.no_grad():
             reconstructed = model(unit_tensor)
             sensor_error = ((unit_tensor - reconstructed) ** 2).mean(dim=1)
 
+        #センサーの数だけエラーのデータを取り出す
         for i, col in enumerate(feature_cols):
             result[f"sensor_error_{col}"] = sensor_error[:, i].cpu().numpy()
 
@@ -131,6 +140,10 @@ def predict_anomaly_batch(
     threshold: float = settings.threshold,
     consecutive_window: int = 5,
 ) -> pd.DataFrame:
+    """
+    バッチ用推論関数
+    TODO: predict_anomaly_oneと共通化できるか今後検討
+    """
     feature_cols = feature_cols or FEATURE_COLUMNS
     data = sequence.copy()
 
@@ -176,6 +189,9 @@ def predict_anomaly_one(
     threshold: float = settings.threshold,
     consecutive_window: int = 5,
 ) -> pd.DataFrame:
+    """
+    都度推論関数
+    """
     data = sequence.copy()
     result = evaluate_with_cycle(
         model,
