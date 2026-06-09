@@ -11,3 +11,4 @@ sqlalchemy
 pydantic-settings
 psycopg[binary]
 alembic
+pytest
