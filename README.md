@@ -20,11 +20,12 @@ but also on operational AI system design including:
 
 ## Overview
 
-- 入力: エンジンごとの時系列センサーデータ
+- 入力: エンジンごとの時系列センサーデータ(unit_number / time_in_cycles / ope_setting1-3 / sensor_ms1-21)
 - モデル: LSTM AutoEncoder
 - 推論: 再構成誤差を anomaly score として算出
-- API: FastAPI `/predict`
-- ログ: `logs/predictions.jsonl`, `logs/predictions.db`
+- API: FastAPI `/predict`, `/predict_batch`(ヘルスチェック: `GET /`)
+- ログ: SQLAlchemy 経由で `prediction_logs` テーブルに保存
+  (接続先は `DATABASE_URL`。デフォルトは `sqlite:///./anomaly.db`、Docker/CI では PostgreSQL を想定)
 - 実行環境: Docker / Docker Compose / WSL
 
 構成図は [system_diagram.md](docs/system_diagram.md) を参照してください。
@@ -54,23 +55,24 @@ but also on operational AI system design including:
 
 - prediction logging
 - monitoring metrics
-- drift monitoring
-- retraining decision support
+- drift monitoring(`scripts/retraining_decision.py`: sensor_ms2 のドリフト比率を監視)
+- retraining decision support(alert率・平均スコア・ドリフトから NO_ACTION / WATCH / REVIEW を判定)
 - dashboard visualization
 - Dockerized deployment
+- CI による回帰テスト
 
 ## Tech Stack
 
 - Python 3.11
 - PyTorch
 - pandas / NumPy / scikit-learn
-- FastAPI
+- FastAPI / Pydantic / pydantic-settings
 - SQLAlchemy
 - PostgreSQL / SQLite
 - Alembic
 - Streamlit
 - Docker / Docker Compose
-- pytest
+- pytest / GitHub Actions
 
 
 ## Project Structure
@@ -78,38 +80,48 @@ but also on operational AI system design including:
 ```text
 .
 ├── api/
-│   ├── main.py                 # FastAPI アプリ・ルーター定義
-│   └── api_model.py            # Pydantic リクエストモデル
+│   ├── main.py                 # FastAPI アプリ・ルーター定義(lifespan でモデル読込)
+│   └── api_model.py            # Pydantic リクエストモデル (SensorRecord / PredictRequest)
 ├── core/
-│   └── config.py               # pydantic-settings による設定管理
+│   └── config.py               # pydantic-settings による設定管理 (.env / 環境変数)
 ├── db/
 │   ├── database.py             # SQLAlchemy エンジン・セッション
-│   └── models.py               # PredictionLog ORM モデル
+│   ├── models.py               # PredictionLog ORM モデル
+│   └── crud.py                 # (旧) 関数ベースの DB アクセス
 ├── repositories/
 │   └── prediction_log_repository.py  # DB アクセス層
 ├── services/
 │   └── prediction_service.py   # 推論ビジネスロジック
 ├── src/
 │   ├── model.py                # LSTM AutoEncoder 定義
-│   ├── train.py                # モデル学習スクリプト
+│   ├── train.py                # モデル学習スクリプト (CLI 引数対応)
 │   ├── inference.py            # 前処理・推論・アラート判定
 │   ├── dataset.py              # データロード・シーケンス生成
-│   └── metrics.py              # 再構成誤差計算
+│   ├── metrics.py              # 再構成誤差計算
+│   ├── prediction_logger.py    # (旧) JSONL ログ
+│   └── sqlite_logger.py        # (旧) SQLite 直書きログ
 ├── scripts/
 │   ├── dashboard.py            # Streamlit 監視ダッシュボード
 │   ├── batch_predict.py        # CSV バッチ推論
 │   ├── retraining_decision.py  # 再学習要否の自動判断
 │   └── test_api_manual.py      # 手動 API テスト
-├── alembic/                    # DB マイグレーション
+├── alembic/                    # DB マイグレーション (alembic.ini はルート)
 ├── docker/
-│   ├── docker-compose.yml
+│   ├── docker-compose.yml      # anomaly-api + anomaly-db (PostgreSQL 16)
 │   └── Dockerfile
 ├── config/
 │   └── config.yaml             # モデル・推論パラメータ
 ├── data/
 │   └── raw/                    # NASA CMAPSS データ (train_FD001.txt 等)
+├── docs/
+│   └── system_diagram.md       # Mermaid 構成図
+├── notebooks/
+│   └── EDA.ipynb               # 探索的データ分析
 ├── tests/
-│   └── services/               # pytest テスト
+│   ├── api/                    # API テスト (TestClient)
+│   └── services/               # Service 層ユニットテスト
+├── .github/workflows/ci.yml    # GitHub Actions CI
+├── pytest.ini
 └── requirements.txt
 ```
 
@@ -251,11 +263,11 @@ inference:
   rolling_window: 10
   threshold: 0.8
   consecutive_window: 5
-
-logging:
-  prediction_log_path: "logs/predictions.jsonl"
-  sqlite_path: "logs/predictions.db"
 ```
+
+実行時設定は [core/config.py](core/config.py)(pydantic-settings)が `.env` / 環境変数から読み込みます。
+推論パラメータ(`seq_len` / `rolling_window` / `threshold` / `consecutive_window`)は
+API リクエストボディでも上書きできます。
 
 ## Troubleshooting
 
@@ -267,7 +279,7 @@ FastAPI app は `api/main.py` にあるため、uvicorn の指定は以下にし
 uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-```
+
 
 
 ## Notes
