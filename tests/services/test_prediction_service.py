@@ -2,7 +2,6 @@ import pytest
 from pydantic import BaseModel
 from api.api_model import PredictRequest
 from services.prediction_service import PredictionService
-from src.inference import DEFAULT_MODEL_PATH, DEFAULT_SCALER_PATH, load_artifacts
 
 class FakeRepository:
     def create(self, prediction, threshold, result):
@@ -26,8 +25,6 @@ class FakeScaler:
     def transform(self, x):
         return x
 
-
-model, scaler, feature_cols = load_artifacts()
 
 def dump_request(request: BaseModel) -> dict:
     if hasattr(request, "model_dump"):
