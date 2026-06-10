@@ -1,8 +1,9 @@
 # Kaggle Turbofan Jet Engine Anomaly Detection
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
-![PyTorch](https://img.shields.io/badge/PyTorch-LSTM-red)
-![FastAPI](https://img.shields.io/badge/FastAPI-API-green)
-![Docker](https://img.shields.io/badge/Docker-Compose-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-LSTM_AutoEncoder-red)
+![FastAPI](https://img.shields.io/badge/FastAPI-REST_API-green)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 
 NASA turbofan engine degradationシミュレーション向けの
 LSTM AutoEncoderによる異常検知システムです。
@@ -30,14 +31,16 @@ but also on operational AI system design including:
 
 ## Features
 
-- LSTM AutoEncoder anomaly detection
-- FastAPI inference API
-- JSONL / SQLite prediction logging
-- Batch prediction CLI
-- Monitoring dashboard
-- Drift monitoring
-- Retraining decision helper
-- Docker Compose deployment
+- Input: engine sensor time-series
+- Model: LSTM AutoEncoder による再構成誤差ベースの異常検知
+- 推論: ローリング平均誤差 + 連続アラート判定で False Positive を抑制
+- API: FastAPI `/predict` および `/predict_batch` エンドポイント
+- Database: PostgreSQL + SQLAlchemy ORM + Alembic マイグレーション
+- ログ: 予測結果を PostgreSQL に永続化 
+- Migration: Alembic
+- 監視:  Streamlit ダッシュボードで Severity・異常スコア・レイテンシを可視化
+- デプロイ: Docker Compose でワンコマンド起動
+- CI: GitHub Actions + pytest (PostgreSQL サービスコンテナ使用) 
 
 ## Dashboard
 
@@ -58,14 +61,16 @@ but also on operational AI system design including:
 
 ## Tech Stack
 
-- Python
+- Python 3.11
 - PyTorch
+- pandas / NumPy / scikit-learn
 - FastAPI
+- SQLAlchemy
+- PostgreSQL / SQLite
+- Alembic
 - Streamlit
-- SQLite
-- Docker
-- Docker Compose
-- Pandas
+- Docker / Docker Compose
+- pytest
 
 
 ## Project Structure
@@ -73,37 +78,39 @@ but also on operational AI system design including:
 ```text
 .
 ├── api/
-│   └── main.py                 # FastAPI app
-├── config/
-│   └── config.yaml             # model/logging settings
-├── data/
-│   ├── raw/                    # NASA turbofan raw data
-│   └── test_sequence.csv       # batch/API test input
+│   ├── main.py                 # FastAPI アプリ・ルーター定義
+│   └── api_model.py            # Pydantic リクエストモデル
+├── core/
+│   └── config.py               # pydantic-settings による設定管理
+├── db/
+│   ├── database.py             # SQLAlchemy エンジン・セッション
+│   └── models.py               # PredictionLog ORM モデル
+├── repositories/
+│   └── prediction_log_repository.py  # DB アクセス層
+├── services/
+│   └── prediction_service.py   # 推論ビジネスロジック
+├── src/
+│   ├── model.py                # LSTM AutoEncoder 定義
+│   ├── train.py                # モデル学習スクリプト
+│   ├── inference.py            # 前処理・推論・アラート判定
+│   ├── dataset.py              # データロード・シーケンス生成
+│   └── metrics.py              # 再構成誤差計算
+├── scripts/
+│   ├── dashboard.py            # Streamlit 監視ダッシュボード
+│   ├── batch_predict.py        # CSV バッチ推論
+│   ├── retraining_decision.py  # 再学習要否の自動判断
+│   └── test_api_manual.py      # 手動 API テスト
+├── alembic/                    # DB マイグレーション
 ├── docker/
 │   ├── docker-compose.yml
-│   └── dockerfile
-├── logs/
-│   ├── predictions.jsonl       # JSONL prediction log
-│   └── predictions.db          # SQLite prediction log
-├── models/
-│   ├── anomaly_api_model.pt    # trained model
-│   └── scaler.pkl              # fitted scaler
-├── results/
-│   └── batch_predictions.csv   # batch prediction output
-├── scripts/
-│   ├── batch_predict.py        # CSV batch prediction
-│   ├── dashboard.py            # Streamlit dashboard
-│   ├── retraining_decision.py  # retraining helper
-│   └── test_api_manual.py      # manual API test
-├── src/
-│   ├── dataset.py              # data loading / sequence creation
-│   ├── inference.py            # preprocessing / prediction
-│   ├── metrics.py              # reconstruction error metrics
-│   ├── model.py                # LSTM AutoEncoder
-│   ├── prediction_logger.py    # JSONL logger
-│   ├── sqlite_logger.py        # SQLite logger
-│   └── train.py                # model training
-├── requirements.txt
+│   └── Dockerfile
+├── config/
+│   └── config.yaml             # モデル・推論パラメータ
+├── data/
+│   └── raw/                    # NASA CMAPSS データ (train_FD001.txt 等)
+├── tests/
+│   └── services/               # pytest テスト
+└── requirements.txt
 ```
 
 ## Setup

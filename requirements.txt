@@ -7,3 +7,8 @@ scikit-learn
 torch
 requests
 streamlit
+sqlalchemy
+pydantic-settings
+psycopg[binary]
+alembic
+pytest
