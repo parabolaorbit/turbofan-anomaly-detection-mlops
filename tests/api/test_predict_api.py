@@ -1,59 +1,81 @@
+import pytest
 from fastapi.testclient import TestClient
-from api.main import app
-from src.inference import load_artifacts
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-#model, scaler, feature_cols = load_artifacts()
+from api.main import app, get_db
+from db.database import Base
 
-with TestClient(app) as client:
+@pytest.fixture
+def client(tmp_path):
+    #テスト専用のSQLite
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'test.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    def test_predict_api_success():
-        payload = {
-            "sequence": [
-                {"unit_number":1,"time_in_cycles":1,"ope_setting1":-0.0007,"ope_setting2":-0.0004,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.82,"sensor_ms3":1589.7,"sensor_ms4":1400.6,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.36,"sensor_ms8":2388.06,"sensor_ms9":9046.19,"sensor_ms10":1.3,"sensor_ms11":47.47,"sensor_ms12":521.66,"sensor_ms13":2388.02,"sensor_ms14":8138.62,"sensor_ms15":8.4195,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.06,"sensor_ms21":23.419},
-                {"unit_number":1,"time_in_cycles":2,"ope_setting1":0.0019,"ope_setting2":-0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.15,"sensor_ms3":1591.82,"sensor_ms4":1403.14,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.75,"sensor_ms8":2388.04,"sensor_ms9":9044.07,"sensor_ms10":1.3,"sensor_ms11":47.49,"sensor_ms12":522.28,"sensor_ms13":2388.07,"sensor_ms14":8131.49,"sensor_ms15":8.4318,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39,"sensor_ms21":23.4236},
-                {"unit_number":1,"time_in_cycles":3,"ope_setting1":-0.0043,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1587.99,"sensor_ms4":1404.2,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.26,"sensor_ms8":2388.08,"sensor_ms9":9052.94,"sensor_ms10":1.3,"sensor_ms11":47.27,"sensor_ms12":522.42,"sensor_ms13":2388.03,"sensor_ms14":8133.23,"sensor_ms15":8.4178,"sensor_ms16":0.03,"sensor_ms17":390,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.3442},
-                {"unit_number":1,"time_in_cycles":4,"ope_setting1":0.0007,"ope_setting2":0,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1582.79,"sensor_ms4":1401.87,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.45,"sensor_ms8":2388.11,"sensor_ms9":9049.48,"sensor_ms10":1.3,"sensor_ms11":47.13,"sensor_ms12":522.86,"sensor_ms13":2388.08,"sensor_ms14":8133.83,"sensor_ms15":8.3682,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.88,"sensor_ms21":23.3739},
-                {"unit_number":1,"time_in_cycles":5,"ope_setting1":-0.0019,"ope_setting2":-0.0002,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.37,"sensor_ms3":1582.85,"sensor_ms4":1406.22,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554,"sensor_ms8":2388.06,"sensor_ms9":9055.15,"sensor_ms10":1.3,"sensor_ms11":47.28,"sensor_ms12":522.19,"sensor_ms13":2388.04,"sensor_ms14":8133.8,"sensor_ms15":8.4294,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.9,"sensor_ms21":23.4044},
-                {"unit_number":1,"time_in_cycles":6,"ope_setting1":-0.0043,"ope_setting2":-0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.1,"sensor_ms3":1584.47,"sensor_ms4":1398.37,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.67,"sensor_ms8":2388.02,"sensor_ms9":9049.68,"sensor_ms10":1.3,"sensor_ms11":47.16,"sensor_ms12":521.68,"sensor_ms13":2388.03,"sensor_ms14":8132.85,"sensor_ms15":8.4108,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.98,"sensor_ms21":23.3669},
-                {"unit_number":1,"time_in_cycles":7,"ope_setting1":0.001,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.48,"sensor_ms3":1592.32,"sensor_ms4":1397.77,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.34,"sensor_ms8":2388.02,"sensor_ms9":9059.13,"sensor_ms10":1.3,"sensor_ms11":47.36,"sensor_ms12":522.32,"sensor_ms13":2388.03,"sensor_ms14":8132.32,"sensor_ms15":8.3974,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.1,"sensor_ms21":23.3774},
-                {"unit_number":1,"time_in_cycles":8,"ope_setting1":-0.0034,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.56,"sensor_ms3":1582.96,"sensor_ms4":1400.97,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.85,"sensor_ms8":2388,"sensor_ms9":9040.8,"sensor_ms10":1.3,"sensor_ms11":47.24,"sensor_ms12":522.47,"sensor_ms13":2388.03,"sensor_ms14":8131.07,"sensor_ms15":8.4076,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.97,"sensor_ms21":23.3106},
-                {"unit_number":1,"time_in_cycles":9,"ope_setting1":0.0008,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.12,"sensor_ms3":1590.98,"sensor_ms4":1394.8,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.69,"sensor_ms8":2388.05,"sensor_ms9":9046.46,"sensor_ms10":1.3,"sensor_ms11":47.29,"sensor_ms12":521.79,"sensor_ms13":2388.05,"sensor_ms14":8125.69,"sensor_ms15":8.3728,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.05,"sensor_ms21":23.4066},
-                {"unit_number":1,"time_in_cycles":10,"ope_setting1":-0.0033,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.71,"sensor_ms3":1591.24,"sensor_ms4":1400.46,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.59,"sensor_ms8":2388.05,"sensor_ms9":9051.7,"sensor_ms10":1.3,"sensor_ms11":47.03,"sensor_ms12":521.79,"sensor_ms13":2388.06,"sensor_ms14":8129.38,"sensor_ms15":8.4286,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.4694}
-            ],
-            "seq_len": 10,
-            "rolling_window": 10,
-            "threshold": 0.8,
-            "consecutive_window": 5
-        }
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
 
-        response = client.post("/predict", json=payload)
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
 
-        assert response.status_code == 200
+def test_predict_api_success(client):
+    payload = {
+        "sequence": [
+            {"unit_number":1,"time_in_cycles":1,"ope_setting1":-0.0007,"ope_setting2":-0.0004,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.82,"sensor_ms3":1589.7,"sensor_ms4":1400.6,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.36,"sensor_ms8":2388.06,"sensor_ms9":9046.19,"sensor_ms10":1.3,"sensor_ms11":47.47,"sensor_ms12":521.66,"sensor_ms13":2388.02,"sensor_ms14":8138.62,"sensor_ms15":8.4195,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.06,"sensor_ms21":23.419},
+            {"unit_number":1,"time_in_cycles":2,"ope_setting1":0.0019,"ope_setting2":-0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.15,"sensor_ms3":1591.82,"sensor_ms4":1403.14,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.75,"sensor_ms8":2388.04,"sensor_ms9":9044.07,"sensor_ms10":1.3,"sensor_ms11":47.49,"sensor_ms12":522.28,"sensor_ms13":2388.07,"sensor_ms14":8131.49,"sensor_ms15":8.4318,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39,"sensor_ms21":23.4236},
+            {"unit_number":1,"time_in_cycles":3,"ope_setting1":-0.0043,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1587.99,"sensor_ms4":1404.2,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.26,"sensor_ms8":2388.08,"sensor_ms9":9052.94,"sensor_ms10":1.3,"sensor_ms11":47.27,"sensor_ms12":522.42,"sensor_ms13":2388.03,"sensor_ms14":8133.23,"sensor_ms15":8.4178,"sensor_ms16":0.03,"sensor_ms17":390,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.3442},
+            {"unit_number":1,"time_in_cycles":4,"ope_setting1":0.0007,"ope_setting2":0,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1582.79,"sensor_ms4":1401.87,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.45,"sensor_ms8":2388.11,"sensor_ms9":9049.48,"sensor_ms10":1.3,"sensor_ms11":47.13,"sensor_ms12":522.86,"sensor_ms13":2388.08,"sensor_ms14":8133.83,"sensor_ms15":8.3682,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.88,"sensor_ms21":23.3739},
+            {"unit_number":1,"time_in_cycles":5,"ope_setting1":-0.0019,"ope_setting2":-0.0002,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.37,"sensor_ms3":1582.85,"sensor_ms4":1406.22,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554,"sensor_ms8":2388.06,"sensor_ms9":9055.15,"sensor_ms10":1.3,"sensor_ms11":47.28,"sensor_ms12":522.19,"sensor_ms13":2388.04,"sensor_ms14":8133.8,"sensor_ms15":8.4294,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.9,"sensor_ms21":23.4044},
+            {"unit_number":1,"time_in_cycles":6,"ope_setting1":-0.0043,"ope_setting2":-0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.1,"sensor_ms3":1584.47,"sensor_ms4":1398.37,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.67,"sensor_ms8":2388.02,"sensor_ms9":9049.68,"sensor_ms10":1.3,"sensor_ms11":47.16,"sensor_ms12":521.68,"sensor_ms13":2388.03,"sensor_ms14":8132.85,"sensor_ms15":8.4108,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.98,"sensor_ms21":23.3669},
+            {"unit_number":1,"time_in_cycles":7,"ope_setting1":0.001,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.48,"sensor_ms3":1592.32,"sensor_ms4":1397.77,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.34,"sensor_ms8":2388.02,"sensor_ms9":9059.13,"sensor_ms10":1.3,"sensor_ms11":47.36,"sensor_ms12":522.32,"sensor_ms13":2388.03,"sensor_ms14":8132.32,"sensor_ms15":8.3974,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.1,"sensor_ms21":23.3774},
+            {"unit_number":1,"time_in_cycles":8,"ope_setting1":-0.0034,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.56,"sensor_ms3":1582.96,"sensor_ms4":1400.97,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.85,"sensor_ms8":2388,"sensor_ms9":9040.8,"sensor_ms10":1.3,"sensor_ms11":47.24,"sensor_ms12":522.47,"sensor_ms13":2388.03,"sensor_ms14":8131.07,"sensor_ms15":8.4076,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.97,"sensor_ms21":23.3106},
+            {"unit_number":1,"time_in_cycles":9,"ope_setting1":0.0008,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.12,"sensor_ms3":1590.98,"sensor_ms4":1394.8,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.69,"sensor_ms8":2388.05,"sensor_ms9":9046.46,"sensor_ms10":1.3,"sensor_ms11":47.29,"sensor_ms12":521.79,"sensor_ms13":2388.05,"sensor_ms14":8125.69,"sensor_ms15":8.3728,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.05,"sensor_ms21":23.4066},
+            {"unit_number":1,"time_in_cycles":10,"ope_setting1":-0.0033,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.71,"sensor_ms3":1591.24,"sensor_ms4":1400.46,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.59,"sensor_ms8":2388.05,"sensor_ms9":9051.7,"sensor_ms10":1.3,"sensor_ms11":47.03,"sensor_ms12":521.79,"sensor_ms13":2388.06,"sensor_ms14":8129.38,"sensor_ms15":8.4286,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.4694}
+        ],
+        "seq_len": 10,
+        "rolling_window": 10,
+        "threshold": 0.8,
+        "consecutive_window": 5
+    }
 
-        body = response.json()
-        assert "prediction" in body
-        assert "threshold" in body
-        assert "result" in body
+    response = client.post("/predict", json=payload)
 
-    def test_predict_api_invalid_payload():
-        payload = {
-            "sequence": [
-                {"unit_number":1,"time_in_cycles":1,"ope_setting1":-0.0007,"ope_setting2":-0.0004,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.82,"sensor_ms3":1589.7,"sensor_ms4":1400.6,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.36,"sensor_ms8":2388.06,"sensor_ms9":9046.19,"sensor_ms10":1.3,"sensor_ms11":47.47,"sensor_ms12":521.66,"sensor_ms13":2388.02,"sensor_ms14":8138.62,"sensor_ms15":8.4195,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.06,"sensor_ms21":23.419},
-                {"unit_number":1,"time_in_cycles":2,"ope_setting1":0.0019,"ope_setting2":-0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.15,"sensor_ms3":1591.82,"sensor_ms4":1403.14,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.75,"sensor_ms8":2388.04,"sensor_ms9":9044.07,"sensor_ms10":1.3,"sensor_ms11":47.49,"sensor_ms12":522.28,"sensor_ms13":2388.07,"sensor_ms14":8131.49,"sensor_ms15":8.4318,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39,"sensor_ms21":23.4236},
-                {"unit_number":1,"time_in_cycles":3,"ope_setting1":-0.0043,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1587.99,"sensor_ms4":1404.2,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.26,"sensor_ms8":2388.08,"sensor_ms9":9052.94,"sensor_ms10":1.3,"sensor_ms11":47.27,"sensor_ms12":522.42,"sensor_ms13":2388.03,"sensor_ms14":8133.23,"sensor_ms15":8.4178,"sensor_ms16":0.03,"sensor_ms17":390,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.3442},
-                {"unit_number":1,"time_in_cycles":4,"ope_setting1":0.0007,"ope_setting2":0,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1582.79,"sensor_ms4":1401.87,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.45,"sensor_ms8":2388.11,"sensor_ms9":9049.48,"sensor_ms10":1.3,"sensor_ms11":47.13,"sensor_ms12":522.86,"sensor_ms13":2388.08,"sensor_ms14":8133.83,"sensor_ms15":8.3682,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.88,"sensor_ms21":23.3739},
-                {"unit_number":1,"time_in_cycles":5,"ope_setting1":-0.0019,"ope_setting2":-0.0002,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.37,"sensor_ms3":1582.85,"sensor_ms4":1406.22,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554,"sensor_ms8":2388.06,"sensor_ms9":9055.15,"sensor_ms10":1.3,"sensor_ms11":47.28,"sensor_ms12":522.19,"sensor_ms13":2388.04,"sensor_ms14":8133.8,"sensor_ms15":8.4294,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.9,"sensor_ms21":23.4044},
-                {"unit_number":1,"time_in_cycles":6,"ope_setting1":-0.0043,"ope_setting2":-0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.1,"sensor_ms3":1584.47,"sensor_ms4":1398.37,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.67,"sensor_ms8":2388.02,"sensor_ms9":9049.68,"sensor_ms10":1.3,"sensor_ms11":47.16,"sensor_ms12":521.68,"sensor_ms13":2388.03,"sensor_ms14":8132.85,"sensor_ms15":8.4108,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.98,"sensor_ms21":23.3669},
-                {"unit_number":1,"time_in_cycles":7,"ope_setting1":0.001,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.48,"sensor_ms3":1592.32,"sensor_ms4":1397.77,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.34,"sensor_ms8":2388.02,"sensor_ms9":9059.13,"sensor_ms10":1.3,"sensor_ms11":47.36,"sensor_ms12":522.32,"sensor_ms13":2388.03,"sensor_ms14":8132.32,"sensor_ms15":8.3974,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.1,"sensor_ms21":23.3774},
-                {"unit_number":1,"time_in_cycles":8,"ope_setting1":-0.0034,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.56,"sensor_ms3":1582.96,"sensor_ms4":1400.97,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.85,"sensor_ms8":2388,"sensor_ms9":9040.8,"sensor_ms10":1.3,"sensor_ms11":47.24,"sensor_ms12":522.47,"sensor_ms13":2388.03,"sensor_ms14":8131.07,"sensor_ms15":8.4076,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.97,"sensor_ms21":23.3106},
-                {"unit_number":1,"time_in_cycles":9,"ope_setting1":0.0008,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.12,"sensor_ms3":1590.98,"sensor_ms4":1394.8,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.69,"sensor_ms8":2388.05,"sensor_ms9":9046.46,"sensor_ms10":1.3,"sensor_ms11":47.29,"sensor_ms12":521.79,"sensor_ms13":2388.05,"sensor_ms14":8125.69,"sensor_ms15":8.3728,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.05,"sensor_ms21":23.4066},
-                {"unit_number":1,"time_in_cycles":10,"ope_setting1":-0.0033,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.71,"sensor_ms3":1591.24,"sensor_ms4":1400.46,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.59,"sensor_ms8":2388.05,"sensor_ms9":9051.7,"sensor_ms10":1.3,"sensor_ms11":47.03,"sensor_ms12":521.79,"sensor_ms13":2388.06,"sensor_ms14":8129.38,"sensor_ms15":8.4286,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.4694}
-            ],
-            "seq_len": "length",
-            "rolling_window": 10,
-            "threshold": 0.8,
-            "consecutive_window": 5
-        }
-        response = client.post("/predict", json=payload)
+    assert response.status_code == 200
 
-        assert response.status_code == 422
+    body = response.json()
+    assert "prediction" in body
+    assert "threshold" in body
+    assert "result" in body
+
+def test_predict_api_invalid_payload(client):
+    payload = {
+        "sequence": [
+            {"unit_number":1,"time_in_cycles":1,"ope_setting1":-0.0007,"ope_setting2":-0.0004,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.82,"sensor_ms3":1589.7,"sensor_ms4":1400.6,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.36,"sensor_ms8":2388.06,"sensor_ms9":9046.19,"sensor_ms10":1.3,"sensor_ms11":47.47,"sensor_ms12":521.66,"sensor_ms13":2388.02,"sensor_ms14":8138.62,"sensor_ms15":8.4195,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.06,"sensor_ms21":23.419},
+            {"unit_number":1,"time_in_cycles":2,"ope_setting1":0.0019,"ope_setting2":-0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.15,"sensor_ms3":1591.82,"sensor_ms4":1403.14,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.75,"sensor_ms8":2388.04,"sensor_ms9":9044.07,"sensor_ms10":1.3,"sensor_ms11":47.49,"sensor_ms12":522.28,"sensor_ms13":2388.07,"sensor_ms14":8131.49,"sensor_ms15":8.4318,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39,"sensor_ms21":23.4236},
+            {"unit_number":1,"time_in_cycles":3,"ope_setting1":-0.0043,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1587.99,"sensor_ms4":1404.2,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.26,"sensor_ms8":2388.08,"sensor_ms9":9052.94,"sensor_ms10":1.3,"sensor_ms11":47.27,"sensor_ms12":522.42,"sensor_ms13":2388.03,"sensor_ms14":8133.23,"sensor_ms15":8.4178,"sensor_ms16":0.03,"sensor_ms17":390,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.3442},
+            {"unit_number":1,"time_in_cycles":4,"ope_setting1":0.0007,"ope_setting2":0,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.35,"sensor_ms3":1582.79,"sensor_ms4":1401.87,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.45,"sensor_ms8":2388.11,"sensor_ms9":9049.48,"sensor_ms10":1.3,"sensor_ms11":47.13,"sensor_ms12":522.86,"sensor_ms13":2388.08,"sensor_ms14":8133.83,"sensor_ms15":8.3682,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.88,"sensor_ms21":23.3739},
+            {"unit_number":1,"time_in_cycles":5,"ope_setting1":-0.0019,"ope_setting2":-0.0002,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.37,"sensor_ms3":1582.85,"sensor_ms4":1406.22,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554,"sensor_ms8":2388.06,"sensor_ms9":9055.15,"sensor_ms10":1.3,"sensor_ms11":47.28,"sensor_ms12":522.19,"sensor_ms13":2388.04,"sensor_ms14":8133.8,"sensor_ms15":8.4294,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.9,"sensor_ms21":23.4044},
+            {"unit_number":1,"time_in_cycles":6,"ope_setting1":-0.0043,"ope_setting2":-0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.1,"sensor_ms3":1584.47,"sensor_ms4":1398.37,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.67,"sensor_ms8":2388.02,"sensor_ms9":9049.68,"sensor_ms10":1.3,"sensor_ms11":47.16,"sensor_ms12":521.68,"sensor_ms13":2388.03,"sensor_ms14":8132.85,"sensor_ms15":8.4108,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.98,"sensor_ms21":23.3669},
+            {"unit_number":1,"time_in_cycles":7,"ope_setting1":0.001,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.48,"sensor_ms3":1592.32,"sensor_ms4":1397.77,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":554.34,"sensor_ms8":2388.02,"sensor_ms9":9059.13,"sensor_ms10":1.3,"sensor_ms11":47.36,"sensor_ms12":522.32,"sensor_ms13":2388.03,"sensor_ms14":8132.32,"sensor_ms15":8.3974,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.1,"sensor_ms21":23.3774},
+            {"unit_number":1,"time_in_cycles":8,"ope_setting1":-0.0034,"ope_setting2":0.0003,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.56,"sensor_ms3":1582.96,"sensor_ms4":1400.97,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.85,"sensor_ms8":2388,"sensor_ms9":9040.8,"sensor_ms10":1.3,"sensor_ms11":47.24,"sensor_ms12":522.47,"sensor_ms13":2388.03,"sensor_ms14":8131.07,"sensor_ms15":8.4076,"sensor_ms16":0.03,"sensor_ms17":391,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.97,"sensor_ms21":23.3106},
+            {"unit_number":1,"time_in_cycles":9,"ope_setting1":0.0008,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":642.12,"sensor_ms3":1590.98,"sensor_ms4":1394.8,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.69,"sensor_ms8":2388.05,"sensor_ms9":9046.46,"sensor_ms10":1.3,"sensor_ms11":47.29,"sensor_ms12":521.79,"sensor_ms13":2388.05,"sensor_ms14":8125.69,"sensor_ms15":8.3728,"sensor_ms16":0.03,"sensor_ms17":392,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":39.05,"sensor_ms21":23.4066},
+            {"unit_number":1,"time_in_cycles":10,"ope_setting1":-0.0033,"ope_setting2":0.0001,"ope_setting3":100,"sensor_ms1":518.67,"sensor_ms2":641.71,"sensor_ms3":1591.24,"sensor_ms4":1400.46,"sensor_ms5":14.62,"sensor_ms6":21.61,"sensor_ms7":553.59,"sensor_ms8":2388.05,"sensor_ms9":9051.7,"sensor_ms10":1.3,"sensor_ms11":47.03,"sensor_ms12":521.79,"sensor_ms13":2388.06,"sensor_ms14":8129.38,"sensor_ms15":8.4286,"sensor_ms16":0.03,"sensor_ms17":393,"sensor_ms18":2388,"sensor_ms19":100,"sensor_ms20":38.95,"sensor_ms21":23.4694}
+        ],
+        "seq_len": "length",
+        "rolling_window": 10,
+        "threshold": 0.8,
+        "consecutive_window": 5
+    }
+    response = client.post("/predict", json=payload)
+
+    assert response.status_code == 422

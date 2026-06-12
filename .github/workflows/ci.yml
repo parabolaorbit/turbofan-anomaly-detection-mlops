@@ -47,6 +47,8 @@ jobs:
         run: |
           alembic upgrade head
 
+      - name: Train smoke model
+        run: python -m src.train --num-epochs 1
+
       - name: Run tests
-        run: |
-          pytest tests/services
+        run: pytest 

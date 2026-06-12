@@ -10,14 +10,10 @@ class PredictionLogRepository:
 
     def create(
             self,
-            prediction: float,
-            threshold: float,
-            result: str,
+            **fields,
     ) -> PredictionLog:
         log = PredictionLog(
-            prediction=prediction,
-            threshold=threshold,
-            result=result,
+            **fields
         )
 
         self.db.add(log)

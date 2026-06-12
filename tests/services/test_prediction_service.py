@@ -4,12 +4,8 @@ from api.api_model import PredictRequest
 from services.prediction_service import PredictionService
 
 class FakeRepository:
-    def create(self, prediction, threshold, result):
-        return {
-            "prediction": prediction, 
-            "threshold": threshold,
-            "result": result,
-        }
+    def create(self, **fields):
+        return fields
     
 class FakeModel:
     def predict(self, x):

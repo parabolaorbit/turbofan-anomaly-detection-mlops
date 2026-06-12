@@ -6,7 +6,6 @@ import pandas as pd
 from src.dataset import FEATURE_COLUMNS, add_cycle_norm
 
 MODEL_VERSION = "v1"
-feature_cols = None
 
 class PredictionService:
     def __init__(
@@ -27,6 +26,8 @@ class PredictionService:
         start_time = time.perf_counter()
         seq_len = input_data.get("seq_len", 10)
         data = pd.DataFrame(input_data["sequence"])
+        rolling_window = input_data.get("rolling_window", 10)
+        consecutive_window = input_data.get("consecutive_window", 5)
         # 前処理
         feature_cols = self.feature_cols or FEATURE_COLUMNS
         if "cycle_norm" not in data.columns:
@@ -39,7 +40,11 @@ class PredictionService:
             sequence=data, 
             model=self.model,
             feature_cols=feature_cols,
-            )
+            seq_len=seq_len,
+            rolling_window=rolling_window,
+            threshold=self.threshold,
+            consecutive_window=consecutive_window,
+        )
 
         
         latency_ms = (time.perf_counter() - start_time) * 1000
@@ -96,17 +101,24 @@ class PredictionService:
             prediction=float(latest["rolling_error"]),
             threshold=float(self.threshold),
             result=final_result,
+            unit_number=int(latest["unit_number"]),
+            severity=severity,
+            alert=bool(latest["alert"]),
+            final_alert=bool(latest["final_alert"]),
+            latency_ms=latency_ms,
+            sensor_ms2_mean=float(sensor_ms2_mean),
+            sensor_ms3_mean=float(sensor_ms3_mean),
+            sensor_ms4_mean=float(sensor_ms4_mean),
+            model_version=MODEL_VERSION,
         )
         # レスポンス
-        return {
-            "prediction": float(latest["rolling_error"]),
-            "threshold": float(self.threshold),
-            "result": final_result,
-        }
+        return response
 
     def predict(self, input_data):
         start_time = time.perf_counter()
         seq_len = input_data.get("seq_len", 10)
+        rolling_window = input_data.get("rolling_window", 10)
+        consecutive_window = input_data.get("consecutive_window", 5)
         data = pd.DataFrame(input_data["sequence"])
         # 前処理
         feature_cols = self.feature_cols or FEATURE_COLUMNS
@@ -120,7 +132,11 @@ class PredictionService:
             sequence=data, 
             model=self.model,
             feature_cols=feature_cols,
-            )
+            seq_len=seq_len,
+            rolling_window=rolling_window,
+            threshold=self.threshold,
+            consecutive_window=consecutive_window,
+        )
 
         
         latency_ms = (time.perf_counter() - start_time) * 1000
@@ -177,6 +193,15 @@ class PredictionService:
             prediction=float(latest["rolling_error"]),
             threshold=float(self.threshold),
             result=final_result,
+            unit_number=int(latest["unit_number"]),
+            severity=severity,
+            alert=bool(latest["alert"]),
+            final_alert=bool(latest["final_alert"]),
+            latency_ms=latency_ms,
+            sensor_ms2_mean=float(sensor_ms2_mean),
+            sensor_ms3_mean=float(sensor_ms3_mean),
+            sensor_ms4_mean=float(sensor_ms4_mean),
+            model_version=MODEL_VERSION,
         )
         # レスポンス
         return {

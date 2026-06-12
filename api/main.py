@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
     if not Path(DEFAULT_MODEL_PATH).exists() or not Path(DEFAULT_SCALER_PATH).exists():
         logger.warning("Model artifacts were not found. Run `python -m src.train` first.")
         yield
+        return
 
     model, scaler, feature_cols = load_artifacts()
     logger.info("Loaded model artifacts.")
@@ -91,7 +92,7 @@ def predict_batch(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post("/predict")
-async def predict(
+def predict(
     request: PredictRequest,
     db: Session = Depends(get_db)
 ):

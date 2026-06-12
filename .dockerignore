@@ -30,10 +30,18 @@ logs/
 # Outputs
 outputs/
 
-# Data
-data/raw/*.pdf
+# Data / outputs(イメージに不要)
+data/
+results/
+notebooks/
+docs/
+tests/
+.github/
+README.md
 
 # OS
 .DS_Store
 Thumb.db
 
+# local config
+.env

@@ -1,25 +1,29 @@
-import sqlite3
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import pandas as pd
 import streamlit as st
+from sqlalchemy import create_engine
+from core.config import settings
 
-
-DB_PATH = "logs/predictions.db"
-
-
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_data():
-    with sqlite3.connect(DB_PATH) as conn:
-        df = pd.read_sql_query(
-            """
-            SELECT *
-            FROM prediction_logs
-            ORDER BY id DESC
-            """,
-            conn,
-        )
-
+    engine = create_engine(settings.database_url)
+    df = pd.read_sql_query(
+        """
+        SELECT *
+        FROM prediction_logs
+        ORDER BY id DESC
+        """,
+        engine,
+    )
     return df
 
+if st.button("Refresh"):
+    load_data.clear()
+    st.rerun()
 
 df = load_data()
 
@@ -32,7 +36,7 @@ st.title("Anomaly Detection Monitoring Dashboard")
 
 total_predictions = len(df)
 
-alert_count = int(df["alert"].sum()) if len(df) else 0
+alert_count = int(df["alert"].fillna(False).sum()) if len(df) else 0
 
 avg_latency = (
     round(df["latency_ms"].mean(), 2)
@@ -78,12 +82,9 @@ st.bar_chart(severity_counts)
 
 st.subheader("Anomaly Score Trend")
 
-if "anomaly_score" in df.columns:
+if "prediction" in df.columns:
     trend_df = df.sort_values("id")
-
-    st.line_chart(
-        trend_df["anomaly_score"]
-    )
+    st.line_chart(trend_df["prediction"])
 
 
 # =====================================
@@ -93,12 +94,14 @@ if "anomaly_score" in df.columns:
 st.subheader("Recent Predictions")
 
 display_columns = [
-    "timestamp",
+    "created_at",
     "unit_number",
-    "anomaly_score",
+    "prediction",
     "threshold",
     "severity",
+    "result",
     "alert",
+    "final_alert",
     "latency_ms",
 ]
 

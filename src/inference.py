@@ -183,10 +183,10 @@ def predict_anomaly_batch(
 def predict_anomaly_one(
     sequence: pd.DataFrame,
     model: torch.nn.Module,
+    threshold: float,
     seq_len: int = 10,
     feature_cols: list[str] | None = None,
     rolling_window: int = 10,
-    threshold: float = settings.threshold,
     consecutive_window: int = 5,
 ) -> pd.DataFrame:
     """
