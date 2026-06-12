@@ -48,7 +48,7 @@ jobs:
           alembic upgrade head
 
       - name: Train smoke model
-        run: python -m src.train --num-epochs 1
+        run: python -m src.train --data-path data/ci/train_FD001_sample.txt --num-epochs 1
 
       - name: Run tests
         run: pytest 

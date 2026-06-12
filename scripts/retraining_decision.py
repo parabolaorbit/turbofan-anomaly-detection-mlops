@@ -59,7 +59,27 @@ def fetch_recent_metrics(limit: int = 100) -> dict:
     }
 
 
-# decide_retraining() は変更不要(そのまま)
+def decide_retraining(metrics: dict) -> str:
+    if metrics["count"] < 30:
+        return "WATCH: not enough data"
+
+    if metrics["final_alert_rate"] >= 0.1:
+        return "REVIEW: final_alert_rate is high"
+
+    if metrics["alert_rate"] >= 0.2:
+        return "REVIEW: alert_rate is high"
+
+    if metrics["avg_score"] >= 0.6:
+        return "WATCH: avg anomaly_score is rising"
+
+    if metrics["sensor_ms2_mean"] is not None:
+        baseline_sensor_ms2 = 642.2
+        drift_ratio = abs(metrics["sensor_ms2_mean"] - baseline_sensor_ms2) / baseline_sensor_ms2
+
+        if drift_ratio >= 0.1:
+            return "REVIEW: sensor_ms2 drift detected"
+
+    return "NO_ACTION"
 
 
 if __name__ == "__main__":
