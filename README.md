@@ -1,4 +1,4 @@
-# Kaggle Turbofan Jet Engine Anomaly Detection
+# Turbofan Anomaly Detection MLOps Platform
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-LSTM_AutoEncoder-red)
 ![FastAPI](https://img.shields.io/badge/FastAPI-REST_API-green)
@@ -8,27 +8,32 @@
 NASA turbofan engine degradationシミュレーション向けの
 LSTM AutoEncoderによる異常検知システムです。
 
-This project focuses not only on model training,
-but also on operational AI system design including:
+単なる機械学習モデルではなく、下記を統合した MLOps プラットフォームとして構築しています。
 
-- FastAPI inference API
-- prediction logging
-- monitoring dashboard
-- drift monitoring
-- retraining decision support
-- Docker Compose deployment
+- FastAPI API
+- PostgreSQL
+- MLflow Model Registry
+- Prometheus
+- Grafana
+- Streamlit Dashboard
+- Docker
+- GitHub Actions
+- Terraform
+- AWS Deployment
+
 
 ## Overview
 
 - 入力: エンジンごとの時系列センサーデータ(unit_number / time_in_cycles / ope_setting1-3 / sensor_ms1-21)
 - モデル: LSTM AutoEncoder
 - 推論: 再構成誤差を anomaly score として算出
-- API: FastAPI `/predict`, `/predict_batch`(ヘルスチェック: `GET /`)
+- API: FastAPI `/predict`, `/predict_batch`(ヘルスチェック: `GET /`、メトリクス: `GET /metrics`)
+  ※ `/predict`・`/predict_batch` は `X-API-Key` ヘッダー必須・レート制限 5 req/min
 - ログ: SQLAlchemy 経由で `prediction_logs` テーブルに保存
   (接続先は `DATABASE_URL`。デフォルトは `sqlite:///./anomaly.db`、Docker/CI では PostgreSQL を想定)
 - 実行環境: Docker / Docker Compose / WSL
 
-構成図は [system_diagram.md](docs/system_diagram.md) を参照してください。
+構成図は [architecture_v2.md](docs/architecture_v2.md) を参照してください。
 
 ## Features
 
@@ -49,6 +54,10 @@ but also on operational AI system design including:
 
 このダッシュボードは監視メトリクス、Severity、異常値スコアのトレンド、直近ログを可視化します。
 
+```bash
+streamlit run scripts/dashboard.py
+```
+
 ## MLOps / Operational Design
 
 このプロジェクトでは、モデル学習に加えAIシステムの運用を設計しました。
@@ -63,16 +72,33 @@ but also on operational AI system design including:
 
 ## Tech Stack
 
-- Python 3.11
+### ML
 - PyTorch
-- pandas / NumPy / scikit-learn
-- FastAPI / Pydantic / pydantic-settings
+- Scikit-Learn
+
+### API
+- FastAPI
+- Pydantic
+
+### Database
+- PostgreSQL
 - SQLAlchemy
-- PostgreSQL / SQLite
 - Alembic
+
+### Monitoring
+- Prometheus
+- Grafana
 - Streamlit
-- Docker / Docker Compose
-- pytest / GitHub Actions
+
+### MLOps
+- MLflow
+- APScheduler
+
+### DevOps
+- Docker
+- GitHub Actions
+- Terraform
+- AWS
 
 
 ## Project Structure
@@ -83,7 +109,12 @@ but also on operational AI system design including:
 │   ├── main.py                 # FastAPI アプリ・ルーター定義(lifespan でモデル読込)
 │   └── api_model.py            # Pydantic リクエストモデル (SensorRecord / PredictRequest)
 ├── core/
-│   └── config.py               # pydantic-settings による設定管理 (.env / 環境変数)
+│   ├── config.py               # pydantic-settings による設定管理 (.env / 環境変数)
+│   ├── security.py             # API Key 認証 (X-API-Key ヘッダー検証)
+│   ├── exceptions.py           # レート制限・内部エラーの例外ハンドラ
+│   └── logging_config.py       # 構造化ログ設定
+├── monitoring/
+│   └── metrics.py              # Prometheus メトリクス定義 (prediction_latency_seconds)
 ├── db/
 │   ├── database.py             # SQLAlchemy エンジン・セッション
 │   ├── models.py               # PredictionLog ORM モデル
@@ -104,17 +135,23 @@ but also on operational AI system design including:
 │   ├── dashboard.py            # Streamlit 監視ダッシュボード
 │   ├── batch_predict.py        # CSV バッチ推論
 │   ├── retraining_decision.py  # 再学習要否の自動判断
+│   ├── retrain.py              # 再学習実行スクリプト
+│   ├── scheduler.py            # APScheduler による定期再学習
 │   └── test_api_manual.py      # 手動 API テスト
 ├── alembic/                    # DB マイグレーション (alembic.ini はルート)
 ├── docker/
-│   ├── docker-compose.yml      # anomaly-api + anomaly-db (PostgreSQL 16)
-│   └── Dockerfile
+│   ├── docker-compose.yml      # anomaly-api + anomaly-db + prometheus + grafana
+│   ├── Dockerfile
+│   └── prometheus/             # Prometheus 設定 (prometheus.yml)
+├── terraform/                  # AWS インフラ定義 (main.tf / variables.tf / outputs.tf)
 ├── config/
 │   └── config.yaml             # モデル・推論パラメータ
 ├── data/
 │   └── raw/                    # NASA CMAPSS データ (train_FD001.txt 等)
 ├── docs/
-│   └── system_diagram.md       # Mermaid 構成図
+│   ├── system_diagram.md       # Mermaid 構成図
+│   ├── architecture.md         # アーキテクチャ解説
+│   └── cloud_deployment.md     # AWS デプロイ手順
 ├── notebooks/
 │   └── EDA.ipynb               # 探索的データ分析
 ├── tests/
@@ -139,6 +176,13 @@ WSL 上で実行する場合は、プロジェクトルートで仮想環境を�
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+環境変数は .env.example をコピーして設定します(API Key・DB 接続先など)。
+
+```bash
+cp .env.example .env
+# API_KEY をデフォルトの dev-secret-key から変更することを推奨
 ```
 
 ## Training
@@ -176,16 +220,42 @@ Swagger UI:
 http://localhost:8080/docs
 ```
 
+### その他のサービス(Docker Compose 起動時)
+Prometheus: 
+```text
+http://localhost:9090
+```
+
+Grafana:
+```text
+http://localhost:3000
+```
+
+メトリクス: 
+```text
+http://localhost:8080/metrics
+```
+
 ヘルスチェック:
 
 ```bash
 curl http://localhost:8080/
 ```
 
+推論エンドポイントは X-API-Key ヘッダーが必須です(レート制限: 5 req/min)。
+
+```bash
+curl -X POST http://localhost:8080/predict \
+  -H "X-API-Key: dev-secret-key" \
+  -H "Content-Type: application/json" \
+  -d @data/sample_request.json 
+```
+
 `seq_len=10` の場合、同じ `unit_number` のデータが最低 10 行必要です。
 
 ## Manual API Test
 
+`scripts/test_api_manual.py` は `.env` の `API_KEY` を `X-API-Key` ヘッダーに付与してリクエストします。
 ```bash
 python scripts/test_api_manual.py
 ```
@@ -210,43 +280,19 @@ python scripts/batch_predict.py
 results/batch_predictions.csv
 ```
 
-## Dashboard
-
-SQLite ログを Streamlit で確認します。
-
-```bash
-streamlit run scripts/dashboard.py
-```
-
 ## Logs
 
-Prediction logs:
+予測結果は `DATABASE_URL` で指定した DB の `prediction_logs` テーブルに永続化されます
+(Docker/CI では PostgreSQL、ローカル既定では `sqlite:///./anomaly.db`)。
 
-```text
-logs/predictions.jsonl
-logs/predictions.db
-```
-
-Docker でホスト側にログを残すには、`logs` ディレクトリをコンテナへ volume mount します。
-
-```yaml
-volumes:
-  - ./logs:/app/logs
-  - ./models:/app/models
-```
-
-SQLite table:
-
-```text
-prediction_logs
-```
-
-確認例:
+PostgreSQL の内容を確認する例(Docker Compose 起動中):
 
 ```bash
-sqlite3 logs/predictions.db ".tables"
-sqlite3 logs/predictions.db ".schema prediction_logs"
+docker exec -it anomaly-db psql -U postgres -d anomaly_db -c "\d prediction_logs"
+docker exec -it anomaly-db psql -U postgres -d anomaly_db -c "SELECT * FROM prediction_logs ORDER BY id DESC LIMIT 10;"
 ```
+
+ダッシュボードからの可視化は上記「Dashboard」セクションを参照してください。
 
 ## Configuration
 
@@ -269,17 +315,27 @@ inference:
 推論パラメータ(`seq_len` / `rolling_window` / `threshold` / `consecutive_window`)は
 API リクエストボディでも上書きできます。
 
-## Troubleshooting
 
-### `Could not import module "main"`
+## Roadmap Status
 
-FastAPI app は `api/main.py` にあるため、uvicorn の指定は以下にします。
-
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
-
-
+- [x] LSTM AutoEncoder
+- [x] FastAPI
+- [x] PostgreSQL
+- [x] Repository Pattern
+- [x] Service Layer
+- [x] Alembic
+- [x] Docker
+- [x] MLflow
+- [x] Model Registry
+- [x] Prometheus
+- [x] Grafana
+- [x] Streamlit
+- [x] API Key
+- [x] Rate Limit
+- [x] Structured Logging
+- [x] GitHub Actions
+- [x] Terraform
+- [ ] ECS Deployment
 
 
 ## Notes

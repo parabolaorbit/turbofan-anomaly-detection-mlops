@@ -41,3 +41,10 @@ class PredictRequest(BaseModel):
     threshold: float = 0.8
     consecutive_window: int = 5
 
+class PredictResponse(BaseModel):
+    prediction: float
+    threshold: float
+    result: str
+    latency_ms: float | None = None
+    model_version: str | None = None
+

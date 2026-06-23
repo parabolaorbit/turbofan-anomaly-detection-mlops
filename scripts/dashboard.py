@@ -7,6 +7,8 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy import create_engine
 from core.config import settings
+from db.database import SessionLocal
+from repositories.prediction_log_repository import PredictionLogRepository
 
 @st.cache_data(ttl=60)
 def load_data():
@@ -31,6 +33,26 @@ st.title("Anomaly Detection Monitoring Dashboard")
 
 
 # =====================================
+# Prediction History
+# =====================================
+db = SessionLocal()
+repository = PredictionLogRepository(db)
+logs = repository.get_recent_logs(limit=20)
+
+df1 = pd.DataFrame(
+    [
+        {
+            "created_at": log.created_at,
+            "predition": log.prediction,
+            "threshold": log.threshold,
+            "result": log.result,
+        }
+        for log in logs
+    ]
+)
+st.dataframe(df1)
+
+# =====================================
 # metrics
 # =====================================
 
@@ -44,7 +66,7 @@ avg_latency = (
     else 0
 )
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 col1.metric(
     "Total Predictions",
@@ -61,6 +83,30 @@ col3.metric(
     avg_latency,
 )
 
+# =====================================
+# Monitoring Metrics
+# =====================================
+anomaly_rate = 0
+col4.metric(
+    "Anomaly Rate",
+    f"{anomaly_rate:.1%}"
+)
+
+# =====================================
+# Model Version
+# =====================================
+st.metric(
+    "Model Version",
+    "v1"
+)
+
+# =====================================
+# Retraining Status
+# =====================================
+st.metric(
+    "Last Retrain",
+    "2026-06-17 02:00"
+)
 
 # =====================================
 # severity distribution
@@ -113,5 +159,8 @@ existing_columns = [
 
 st.dataframe(
     df[existing_columns],
-    use_container_width=True,
+    width="streach",
 )
+
+
+
