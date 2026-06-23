@@ -16,3 +16,5 @@ pytest~=9.0
 mlflow==3.13.0
 protobuf<5
 slowapi
+prometheus-client~=0.25
+httpx2~=2.4

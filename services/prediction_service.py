@@ -32,7 +32,7 @@ class PredictionService:
                 "extra": {"event": "prediction_received"}
             }
         )
-        
+
         prediction_requests_total.inc()
         start_time = time.perf_counter()
         seq_len = input_data.get("seq_len", 10)
@@ -261,3 +261,4 @@ class PredictionService:
         )
         # レスポンス
         return response
+
