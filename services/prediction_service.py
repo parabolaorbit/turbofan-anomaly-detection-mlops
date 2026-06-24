@@ -206,6 +206,14 @@ class PredictionService:
         sensor_ms3_mean = data["sensor_ms3"].mean()
         sensor_ms4_mean = data["sensor_ms4"].mean()
 
+        # 判定
+        final_result = ""
+        if bool(latest["final_alert"]):
+            final_result = "anomaly"
+            anomaly_predictions_total.inc()
+        else:
+            final_result = "normal"
+        
         response = {
             "unit_number": int(latest["unit_number"]),
             "time_in_cycles": int(latest["time_in_cycles"]),
@@ -214,6 +222,7 @@ class PredictionService:
             "threshold": float(self.threshold),
             "alert": bool(latest["alert"]),
             "final_alert": bool(latest["final_alert"]),
+            "result": final_result,
             "severity": severity,
             "top_sensor_errors": top_sensor_errors,
             "model_version": MODEL_VERSION,
@@ -225,13 +234,7 @@ class PredictionService:
         reconstruction_error_gauge.set(latest["error"])
         rolling_error_gauge.set(float(latest["rolling_error"]))
         sensor_ms2_mean_gauge.set(float(sensor_ms2_mean))
-        # 判定
-        final_result = ""
-        if bool(latest["final_alert"]):
-            final_result = "anomaly"
-            anomaly_predictions_total.inc()
-        else:
-            final_result = "normal"
+        
         # ログ保存
         self.repository.create(
             prediction=float(latest["rolling_error"]),

@@ -159,11 +159,11 @@ def predict_batch(
             response = service.predict_batch(dump_request(body))
         # 結果を返却
         return PredictResponse(
-                prediction=response.rolling_error,
-                threshold=response.threshold,
-                result=response.final_alert,
-                latency_ms=response.latency_ms,
-                model_version=response.model_version,
+                prediction=response["rolling_error"],
+                threshold=response["threshold"],
+                result=response["result"],
+                latency_ms=response["latency_ms"],
+                model_version=response["model_version"],
             )
     except HTTPException:
         raise
@@ -239,11 +239,11 @@ def predict(
             response = service.predict(dump_request(body))
         # 結果を返却
         return PredictResponse(
-                prediction=response.rolling_error,
-                threshold=response.threshold,
-                result=response.final_alert,
-                latency_ms=response.latency_ms,
-                model_version=response.model_version,
+                prediction=response["rolling_error"],
+                threshold=response["threshold"],
+                result=response["result"],
+                latency_ms=response["latency_ms"],
+                model_version=response["model_version"],
             )
     except HTTPException:
         raise
