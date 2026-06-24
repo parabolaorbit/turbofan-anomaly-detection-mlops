@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "Anomaly Detection API"
     env: str = "local"
+    api_key: str = "dev-secret-key"
 
     database_url: str = "sqlite:///./anomaly.db"
 

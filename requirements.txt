@@ -1,9 +1,9 @@
 fastapi~=0.136.1
 uvicorn~=0.47.0
 PyYAML~=6.0
-pandas~=3.0
+pandas~=2.2
 numpy~=2.4
-scikit-learn~=1.8
+scikit-learn==1.8
 torch~=2.10.0
 requests~=2.32
 streamlit~=1.58
@@ -13,3 +13,8 @@ pydantic-settings~=2.14
 psycopg[binary]~=3.3
 alembic~=1.18
 pytest~=9.0
+mlflow==3.13.0
+protobuf<5
+slowapi
+prometheus-client~=0.25
+httpx2~=2.4

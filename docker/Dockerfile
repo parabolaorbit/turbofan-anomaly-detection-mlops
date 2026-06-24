@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# ==== builder stage ====
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -11,8 +12,28 @@ RUN apt-get update && apt-get install -y \
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir --prefix=/install torch --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-COPY . .
+# ==== runtime stage ====
+FROM python:3.11-slim AS runtime
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+
+COPY api ./api
+COPY src ./src
+COPY db ./db
+COPY core ./core
+COPY repositories ./repositories
+COPY services ./services
+COPY config ./config
+COPY alembic ./alembic
+COPY alembic.ini .
+COPY models ./models
+COPY monitoring ./monitoring
+
+EXPOSE 8000
+CMD ["sh", "-c", "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8000"]

@@ -10,8 +10,7 @@ __pycache__/
 venv/
 
 # models
-models/*.pt
-models/*.pkl
+
 
 # streamlit
 .streamlit/
@@ -21,6 +20,7 @@ models/*.pkl
 
 # notebook checkpoints
 .ipynb_checkpoints/
+notebooks
 
 # logs
 logs/
@@ -45,3 +45,7 @@ Thumb.db
 
 # local config
 .env
+
+# Cache
+__pycache__
+.pytest_cache

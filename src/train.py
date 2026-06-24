@@ -8,6 +8,8 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import mlflow
+import mlflow.pytorch
 
 from src.dataset import (
     FEATURE_COLUMNS,
@@ -22,6 +24,9 @@ from src.model import build_model
 
 logger = logging.getLogger(__name__)
 
+mlflow.set_experiment(
+    "turbofan-anomaly-detection"
+)
 
 def train_model(
     data_path: str | Path = "data/raw/train_FD001.txt",
@@ -36,51 +41,73 @@ def train_model(
     feature_cols: list[str] | None = None,
 ) -> dict[str, float]:
     feature_cols = feature_cols or FEATURE_COLUMNS
-    data = load_turbofan_data(data_path)
-    train_df, _ = split_by_unit(data, train_unit_count=train_unit_count)
-    train_scaled, _, scaler = scale_features(train_df, feature_cols=feature_cols)
-    normal_train_df = extract_normal_period(train_scaled, normal_ratio=normal_ratio)
 
-    train_seq = create_sequences(normal_train_df, seq_len=seq_len, feature_cols=feature_cols)
-    if len(train_seq) == 0:
-        raise ValueError("No training sequences were created. Check seq_len and input data.")
-
-    train_tensor = torch.tensor(train_seq, dtype=torch.float32)
-    model = build_model(input_dim=len(feature_cols), hidden_dim=hidden_dim)
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    last_loss = 0.0
-    for epoch in range(num_epochs):
-        model.train()
-        reconstructed = model(train_tensor)
-        optimizer.zero_grad()
-        loss = criterion(reconstructed, train_tensor)
-        loss.backward()
-        optimizer.step()
-        last_loss = float(loss.item())
-
-        if epoch % 10 == 0 or epoch == num_epochs - 1:
-            logger.info("Epoch %s/%s, Loss: %.4f", epoch + 1, num_epochs, last_loss)
-
-    model_path = Path(model_path)
-    scaler_path = Path(scaler_path)
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-    scaler_path.parent.mkdir(parents=True, exist_ok=True)
-
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "feature_cols": feature_cols,
+    with mlflow.start_run():
+        mlflow.log_params({
+            "data_path": str(data_path),
+            "model_path": str(model_path),
+            "scaler_path": str(scaler_path),
             "seq_len": seq_len,
             "hidden_dim": hidden_dim,
-        },
-        model_path,
-    )
-    with scaler_path.open("wb") as f:
-        pickle.dump(scaler, f)
+            "normal_ratio": normal_ratio,
+            "train_unit_count": train_unit_count,
+            "num_epochs": num_epochs,
+            "learning_rate": learning_rate,
+            "feature_cols": feature_cols,
+        })
+        data = load_turbofan_data(data_path)
+        train_df, _ = split_by_unit(data, train_unit_count=train_unit_count)
+        train_scaled, _, scaler = scale_features(train_df, feature_cols=feature_cols)
+        normal_train_df = extract_normal_period(train_scaled, normal_ratio=normal_ratio)
 
-    return {"loss": last_loss, "train_sequences": float(len(train_seq))}
+        train_seq = create_sequences(normal_train_df, seq_len=seq_len, feature_cols=feature_cols)
+        if len(train_seq) == 0:
+            raise ValueError("No training sequences were created. Check seq_len and input data.")
+
+        train_tensor = torch.tensor(train_seq, dtype=torch.float32)
+        model = build_model(input_dim=len(feature_cols), hidden_dim=hidden_dim)
+        criterion = nn.MSELoss()
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+        last_loss = 0.0
+        for epoch in range(num_epochs):
+            model.train()
+            reconstructed = model(train_tensor)
+            optimizer.zero_grad()
+            loss = criterion(reconstructed, train_tensor)
+            loss.backward()
+            optimizer.step()
+            last_loss = float(loss.item())
+
+            if epoch % 10 == 0 or epoch == num_epochs - 1:
+                logger.info("Epoch %s/%s, Loss: %.4f", epoch + 1, num_epochs, last_loss)
+
+        model_path = Path(model_path)
+        scaler_path = Path(scaler_path)
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        scaler_path.parent.mkdir(parents=True, exist_ok=True)
+
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "feature_cols": feature_cols,
+                "seq_len": seq_len,
+                "hidden_dim": hidden_dim,
+            },
+            model_path,
+        )
+        with scaler_path.open("wb") as f:
+            pickle.dump(scaler, f)
+
+        metrics = {"loss": last_loss, "train_sequences": float(len(train_seq))}
+        mlflow.log_metrics(metrics)
+        mlflow.log_artifact(str(model_path))
+        mlflow.log_artifact(str(scaler_path))
+        mlflow.pytorch.log_model(
+            pytorch_model=model,
+            name="model"
+        )
+        return metrics
 
 
 def parse_args() -> argparse.Namespace:

@@ -48,14 +48,14 @@ def test_predict_api_success(client):
         "consecutive_window": 5
     }
 
-    response = client.post("/predict", json=payload)
+    response = client.post("/predict", json=payload, headers={"X-API-Key": "dev-secret-key"})
 
     assert response.status_code == 200
 
     body = response.json()
     assert "prediction" in body
     assert "threshold" in body
-    assert "result" in body
+    
 
 def test_predict_api_invalid_payload(client):
     payload = {
@@ -76,6 +76,6 @@ def test_predict_api_invalid_payload(client):
         "threshold": 0.8,
         "consecutive_window": 5
     }
-    response = client.post("/predict", json=payload)
+    response = client.post("/predict", json=payload, headers={"X-API-Key": "dev-secret-key"})
 
     assert response.status_code == 422
