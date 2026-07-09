@@ -1,8 +1,10 @@
+#========================================================
+# LSTMオートエンコーダモデル定義
+#========================================================
 from __future__ import annotations
 
 import torch
 import torch.nn as nn
-
 
 class LSTMAutoEncoder(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int):

@@ -4,7 +4,6 @@ PyYAML~=6.0
 pandas~=2.2
 numpy~=2.4
 scikit-learn==1.8
-torch~=2.10.0
 requests~=2.32
 streamlit~=1.58
 sqlalchemy~=2.0
@@ -17,4 +16,4 @@ mlflow==3.13.0
 protobuf<5
 slowapi
 prometheus-client~=0.25
-httpx2~=2.4
+httpx~=0.28

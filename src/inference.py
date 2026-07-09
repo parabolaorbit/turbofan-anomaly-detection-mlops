@@ -1,3 +1,6 @@
+#========================================================
+# 推論用の関数群
+#========================================================
 from __future__ import annotations
 
 import pickle
@@ -26,9 +29,7 @@ def load_artifacts(
     scaler_path: str | Path = DEFAULT_SCALER_PATH,
     device: str = "cpu",
 ):
-    """
-    アーティファクト(config.yaml)の読み込み
-    """
+    """アーティファクト(config.yaml)の読み込み"""
     checkpoint = torch.load(model_path, map_location=device)
     feature_cols = checkpoint.get("feature_cols", FEATURE_COLUMNS)
     hidden_dim = checkpoint.get("hidden_dim", 10)
@@ -115,8 +116,7 @@ def extract_latent_with_cycle(
 
             unit_tensor = torch.tensor(unit_seq, dtype=torch.float32)
             latent = model.encode(unit_tensor).numpy()
-            meta = pd.DataFrame(
-                {
+            meta = pd.DataFrame({
                     "unit_number": unit_id,
                     "cycle": unit_df["time_in_cycles"].values[seq_len - 1 :],
                     "cycle_norm": unit_df["cycle_norm"].values[seq_len - 1 :],
@@ -189,9 +189,7 @@ def predict_anomaly_one(
     rolling_window: int = 10,
     consecutive_window: int = 5,
 ) -> pd.DataFrame:
-    """
-    都度推論関数
-    """
+    """都度推論関数"""
     data = sequence.copy()
     result = evaluate_with_cycle(
         model,

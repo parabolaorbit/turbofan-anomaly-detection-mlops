@@ -1,9 +1,11 @@
+#========================================================
+# APIのリクエスト・レスポンスデータ形式を定義する
+#========================================================
+from __future__ import annotations
 from pydantic import BaseModel, Field
 
 class SensorRecord(BaseModel):
-    """
-    ユニットNo、Cycleごとのセンサー状態
-    """
+    """ユニットNo、Cycleごとのセンサー状態を表すデータ形式"""
     unit_number: int
     time_in_cycles: int
     ope_setting1: float
@@ -32,9 +34,7 @@ class SensorRecord(BaseModel):
     sensor_ms21: float
 
 class PredictRequest(BaseModel):
-    """
-    推論API呼び出し時のリクエストデータ形式
-    """
+    """推論API呼び出し時のリクエストデータ形式"""
     sequence: list[SensorRecord] = Field(..., min_length=1)
     seq_len: int = 10
     rolling_window: int = 10
@@ -42,6 +42,7 @@ class PredictRequest(BaseModel):
     consecutive_window: int = 5
 
 class PredictResponse(BaseModel):
+    """推論API呼び出し時のレスポンスデータ形式"""
     prediction: float
     threshold: float
     result: str

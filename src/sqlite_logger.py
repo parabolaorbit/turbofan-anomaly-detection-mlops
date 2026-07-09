@@ -1,3 +1,7 @@
+#========================================================
+# SQLiteに推論結果を保存する関数群 
+# ToDo: 将来的にPostgreSQLに置き換え
+#========================================================
 import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
