@@ -1,3 +1,7 @@
+#========================================================
+# 学習、推論用のデータセットを作成するための関数群
+#========================================================
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,13 +17,14 @@ BASE_COLUMNS = ["unit_number", "time_in_cycles", *OPERATION_COLUMNS, *FEATURE_CO
 
 
 def load_turbofan_data(path: str | Path) -> pd.DataFrame:
-    """Load NASA turbofan text data and add a normalized cycle column."""
+    """NASA Turbofan Engine Degradation Simulation Data Setを読み込む"""
     data = pd.read_csv(path, sep=r"\s+", header=None)
     data.columns = BASE_COLUMNS
     return add_cycle_norm(data)
 
 
 def add_cycle_norm(data: pd.DataFrame) -> pd.DataFrame:
+    """データセットに正規化されたサイクル列を追加する"""
     data = data.copy()
     data["cycle_norm"] = data.groupby("unit_number")["time_in_cycles"].transform(
         lambda x: x / x.max()
@@ -31,6 +36,7 @@ def split_by_unit(
     data: pd.DataFrame,
     train_unit_count: int = 80,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """ユニット単位でデータを分割する"""
     units = data["unit_number"].unique()
     train_units = units[:train_unit_count]
     test_units = units[train_unit_count:]

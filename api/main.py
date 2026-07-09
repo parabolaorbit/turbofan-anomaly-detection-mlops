@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, APIRouter, Response, Request, Depends
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from src.inference import DEFAULT_MODEL_PATH, DEFAULT_SCALER_PATH, load_artifacts
@@ -22,7 +21,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from core.exceptions import rate_limit_handler, internal_server_error_handler
 from core.logging_config import setup_logging
-
+from core.const import FASTAPI_PREDICTION_RESPONSE, FASTAPI_PREDICTION_DESCRIPTION
 
 # 実行ログ定義
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -33,6 +32,7 @@ model = None
 scaler = None
 feature_cols = None
 
+# FastAPIのライフサイクルイベントでモデルアーティファクトをロード
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model, scaler, feature_cols
@@ -98,38 +98,10 @@ def health_check():
 @router.post("/predict_batch",
             tags=["Prediction"],
             summary="Predict anomaly score for Batch",
-            description=(
-                "Receives turbofan sensor sequence data and"
-                " returns reconstruction error, anomaly result, and model metadata."
-            ),
+            description=FASTAPI_PREDICTION_DESCRIPTION,
             response_model=PredictResponse,
             response_description="Prediction result",
-            responses={
-                401: {
-                    "description": "Invalid API key",
-                    "content": {
-                        "application/json": {
-                            "example": {
-                                "error_code": "INVALID_API_KEY",
-                                "message": "Invalid API key",
-                                "status_code": 401,
-                            }
-                        }
-                    },
-                },
-                429: {
-                    "description": "Rate limit exceeded",
-                    "content": {
-                        "application/json": {
-                            "example": {
-                                "error_code": "RATE_LIMIT_EXCEEDED",
-                                "message": "Rate limit exceeded",
-                                "status_code": 429,
-                            }
-                        }
-                    },
-                },
-            },
+            responses=FASTAPI_PREDICTION_RESPONSE,
             dependencies=[Depends(verify_api_key)])
 @limiter.limit("5/minute")
 def predict_batch(
@@ -177,36 +149,8 @@ def predict_batch(
 @router.post("/predict", 
             tags=["Prediction"],
             summary="Predict anomaly score for online",
-            description=(
-                "Receives turbofan sensor sequence data and"
-                " returns reconstruction error, anomaly result, and model metadata."
-            ),
-            responses={
-                401: {
-                    "description": "Invalid API key",
-                    "content": {
-                        "application/json": {
-                            "example": {
-                                "error_code": "INVALID_API_KEY",
-                                "message": "Invalid API key",
-                                "status_code": 401,
-                            }
-                        }
-                    },
-                },
-                429: {
-                    "description": "Rate limit exceeded",
-                    "content": {
-                        "application/json": {
-                            "example": {
-                                "error_code": "RATE_LIMIT_EXCEEDED",
-                                "message": "Rate limit exceeded",
-                                "status_code": 429,
-                            }
-                        }
-                    },
-                },
-            },
+            description=FASTAPI_PREDICTION_DESCRIPTION,
+            responses=FASTAPI_PREDICTION_RESPONSE,
             response_model=PredictResponse,
             response_description="Prediction result",
             dependencies=[Depends(verify_api_key)])

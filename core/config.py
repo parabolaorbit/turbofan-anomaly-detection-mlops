@@ -1,3 +1,6 @@
+#========================================================
+# 設定値を管理するクラス
+#========================================================
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -10,7 +13,7 @@ class Settings(BaseSettings):
     model_path: str = "models/anomaly_api_model.pt"
     scaler_path: str = "models/scaler.pkl"
 
-    threshold: float = 0.1
+    threshold: float = 0.8
 
     model_config = SettingsConfigDict(
         env_file=".env",
