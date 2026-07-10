@@ -7,8 +7,9 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: ap_northeast-1
+  AWS_REGION: ap-northeast-1
   ECR_REPOSITORY: turbofan-anomaly-api
+  MODEL_S3_URI: s3://anomaly-storage-097853039113-ap-northeast-1-an/turbofan/models
   
 jobs:
   build-and-push:
@@ -25,17 +26,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Download model artifacts from S3
+        run: |
+          mkdir -p models
+          aws s3 cp "$MODEL_S3_URI/anomaly_api_model.pt" models/anomaly_api_model.pt
+          aws s3 cp "$MODEL_S3_URI/scaler.pkl" models/scaler.pkl
+
       - name: Log in to Amazon ECR
+        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Docker image
+        env: 
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REPOSITORY -f docker/Dockerfile .
-
-      - name: Tag Docker image
-        run: |
-          docker tag $ECR_REPOSITORY:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPOSITORY:latest
+          docker build \
+          -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+          -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+          -f docker/Dockerfile .
 
       - name: Push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPOSITORY:latest  
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
