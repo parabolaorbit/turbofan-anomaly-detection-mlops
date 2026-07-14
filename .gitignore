@@ -100,7 +100,6 @@ data/processed/
 # Terraform
 # =========================================
 .terraform/
-.terraform.lock.hcl
 
 # =========================================
 # mlruns
