@@ -54,25 +54,14 @@ jobs:
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
-      - name: Download current task definition
+      - name: Redeploy ECS service if it exists
         run: |
-          aws ecs describe-task-definition \
-          --task-definition turbofan-api-task \
-          --query taskDefinition \
-          > task-definition.json
-
-      - name: Fill in image
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: turbofan-anomaly-api
-          image: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: turbofan-api-service
-          cluster: turbofan-cluster1
-          wait-for-service-stability: true
+          STATUS=$(aws ecs describe-services \
+            --cluster turbofan-cluster --services turbofan-api \
+            --query 'services[0].status' --output text 2>/dev/null || echo "MISSING")
+          if [ "$STATUS" = "ACTIVE" ]; then
+            aws ecs update-service --cluster turbofan-cluster \
+              --service turbofan-api --force-new-deployment
+          else
+            echo "ECS service not present (app layer destroyed). Skipping deploy."
+          fi
