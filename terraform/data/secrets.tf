@@ -48,7 +48,7 @@ resource "aws_secretsmanager_secret_version" "db" {
     port     = 5432
     dbname   = var.db_name
     # アプリがそのまま使える接続文字列も同梱
-    database_url = "postgresql://${local.db_creds.username}:${local.db_creds.password}@${aws_db_instance.main.address}:5432/${var.db_name}"
+    database_url = "postgresql+psycopg://${local.db_creds.username}:${local.db_creds.password}@${aws_db_instance.main.address}:5432/${var.db_name}"
   })
 }
 
