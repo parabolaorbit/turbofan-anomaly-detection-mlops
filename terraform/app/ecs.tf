@@ -2,8 +2,6 @@
 # ECS (クラスタ / タスク定義 / サービス)
 #
 # 設計判断:
-# - ALBなし。タスクにパブリックIPを直付けし、SGの許可CIDRで防御
-#   (デモ用途。本番ならALB+ACMでTLS終端する判断を語れること)
 # - DB認証情報は環境変数に平文で置かず、Secrets Managerから
 #   コンテナ起動時に注入する(secrets句)。タスク定義のJSONにも残らない
 # - CloudWatch Logsの保持期間を明示(無期限だと地味に課金が積もる)
@@ -98,6 +96,20 @@ resource "aws_ecs_service" "api" {
     security_groups  = [local.app_sg_id]
     assign_public_ip = true # NATなし構成の要。ECR pullもこの経路
   }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api.arn
+    container_name   = "api"
+    container_port   = var.api_port
+  }
+
+  # PyTorchのモデルロードで起動に時間がかかるため、起動直後の
+  # ヘルスチェック失敗でタスクが殺されないよう猶予を設ける。
+  # 起動→即停止を繰り返す場合はまずこの値を疑う
+  health_check_grace_period_seconds = 120
+
+  # リスナーが先に存在しないとサービス作成が失敗することがある
+  depends_on = [aws_lb_listener.http]
 
   # デプロイのたびにdesired_countの手動変更を上書きしない
   lifecycle {

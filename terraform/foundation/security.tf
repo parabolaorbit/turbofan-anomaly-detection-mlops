@@ -3,37 +3,31 @@
 #
 # 設計判断:
 # - SG参照チェーンで最小権限を構成する
-#   インターネット --(8080, 許可CIDRのみ)--> app SG --(5432)--> db SG
+#   ALB SG --(8080, app層から注入)--> app SG --(5432)--> db SG
 # - RDSへの接続元を「CIDR」ではなく「app SGのID」で指定するのが肝。
 #   Fargateタスクは起動のたびにIPが変わるが、SG参照なら追従できる
 # ------------------------------------------------------------
 
 # --- Fargateタスク用 ---
+# ECR pull / Secrets Manager / CloudWatch Logs への到達に必要
 resource "aws_security_group" "app" {
     name = "${var.project}-app"
+    # nameとdescriptionは変更不可属性。変えるとSGの再作成(destroy→create)になり、
+    # 参照元(db SG / タスクのENI)があるとDependencyViolationで失敗する
     description = "Fargate task (FastAPI)"
     vpc_id = aws_vpc.main.id
-
-    ingress {
-        description = "API access"
-        from_port = var.api_port
-        to_port = var.api_port
-        protocol = "tcp"
-        cidr_blocks = var.api_allowed_cidrs
-    }
-
-    # ECR pull / Secrets Manager / CloudWatch Logs への到達に必要
-    egress {
-        description = "Allow all outbound traffic"
-        from_port = 0
-        to_port = 0
-        protocol = "-1"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
 
     tags = {
         Name = "${var.project}-app-sg"
     }
+}
+
+# ECR pull / Secrets Manager / CloudWatch Logs への到達に必要
+resource "aws_vpc_security_group_egress_rule" "app_all_outbound" {
+    security_group_id = aws_security_group.app.id
+    description = "Allow all outbound traffic"
+    ip_protocol = "-1"
+    cidr_ipv4 = "0.0.0.0/0"
 }
 
 # --- RDS用 ---

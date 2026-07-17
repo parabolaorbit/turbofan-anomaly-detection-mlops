@@ -11,6 +11,10 @@ locals {
 }
 
 # --- foundation層 ---
+data "aws_ssm_parameter" "vpc_id" {
+  name = "${local.ssm_foundation}/vpc_id"
+}
+
 data "aws_ssm_parameter" "public_subnet_ids" {
   name = "${local.ssm_foundation}/public_subnet_ids"
 }

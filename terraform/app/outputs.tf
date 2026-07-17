@@ -1,10 +1,11 @@
 # ------------------------------------------------------------
 # Outputs
 #
-# FargateタスクのパブリックIPは起動ごとに変わり、Terraformの
-# apply時点では確定しない(サービスが後からタスクを起動するため)。
-# そのためIP取得はCLIで行う。コマンドをoutputとして出力しておく
 # ------------------------------------------------------------
+
+output "api_url" {
+  value = "http://${aws_lb.main.dns_name}"
+}
 
 output "cluster_name" {
   value = aws_ecs_cluster.main.name
