@@ -20,9 +20,9 @@ variable "image_tag" {
 }
 
 variable "api_port" {
-  description = "FastAPIコンテナのポート(foundation層のapi_portと揃える)"
+  description = "FastAPIコンテナのポート(docker/DockerfileのCMDが8000固定のため揃えること)"
   type        = number
-  default     = 8080
+  default     = 8000
 }
 
 # Fargateの有効なCPU/メモリ組み合わせに注意:
@@ -44,6 +44,18 @@ variable "desired_count" {
   description = "APIタスクの起動数"
   type        = number
   default     = 1
+}
+
+variable "alb_allowed_cidrs" {
+  description = "ALBのIngress許可CIDRリスト"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "health_check_path" {
+  description = "ALBのヘルスチェックパス(api/main.pyの `GET /` がヘルスチェック実装)"
+  type        = string
+  default     = "/"
 }
 
 # Fargate Spot: 約7割引だが中断されうる。学習・デモ用途ならtrue推奨
