@@ -7,8 +7,11 @@
 # - foundation側のapp SGへの「ALBからの許可」も、この層から
 #   aws_vpc_security_group_ingress_rule で注入する
 #   → destroyすればルールごと消え、foundationは元の状態に戻る
-# - リスナーはHTTP:80。HTTPS化はACM証明書+独自ドメイン取得後の
-#   改善ステップとして分離(下部コメント参照)
+# - TLSはALBで終端(HTTPS:443)。HTTP:80は443へのリダイレクト専用。
+#   ALB→Fargate間はVPC内なのでHTTPのまま(一般的な終端構成)
+# - ACM証明書とRoute53ホストゾーンはコンソール管理の長寿命リソース。
+#   ARN/IDはterraform.tfvarsで受け取り、Aレコードだけをこの層で管理する
+#   → applyのたびに新しいALBへレコードが追従する
 #
 # コスト: 約$0.0225/時 + LCU。使い捨て運用なら1日デモで$0.2前後
 # ------------------------------------------------------------
@@ -19,10 +22,19 @@ resource "aws_security_group" "alb" {
   description = "ALB for turbofan API"
   vpc_id      = data.aws_ssm_parameter.vpc_id.value
 
+  # 80はHTTPS化後もリダイレクト受け付けのために残す
   ingress {
-    description = "HTTP from allowed CIDRs"
+    description = "HTTP from allowed CIDRs (redirect to HTTPS)"
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = var.alb_allowed_cidrs
+  }
+
+  ingress {
+    description = "HTTPS from allowed CIDRs"
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = var.alb_allowed_cidrs
   }
@@ -88,11 +100,13 @@ resource "aws_lb_target_group" "api" {
   }
 }
 
-# --- リスナー(HTTP) ---
-resource "aws_lb_listener" "http" {
+# --- リスナー(HTTPS) ---
+resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.main.arn
-  port              = 80
-  protocol          = "HTTP"
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = var.certificate_arn
 
   default_action {
     type             = "forward"
@@ -100,11 +114,34 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# ------------------------------------------------------------
-# HTTPS化する場合(独自ドメイン+ACM証明書の取得後):
-#
-# 1. aws_acm_certificate + Route53でDNS検証
-# 2. aws_lb_listener "https" (port=443, protocol="HTTPS",
-#    certificate_arn=..., ssl_policy="ELBSecurityPolicy-TLS13-1-2-2021-06")
-# 3. 上のHTTPリスナーのdefault_actionを redirect(301→443)に変更
-# ------------------------------------------------------------
+# --- リスナー(HTTP → HTTPSリダイレクト) ---
+# APIキーが平文で流れないよう、80番はforwardせず301を返すだけ
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# --- Route53 Aレコード(alias) ---
+# ALBは使い捨てでDNS名がapplyごとに変わるため、レコードはこの層で管理して追従させる
+resource "aws_route53_record" "api" {
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.main.dns_name
+    zone_id                = aws_lb.main.zone_id
+    evaluate_target_health = true
+  }
+}

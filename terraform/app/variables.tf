@@ -64,3 +64,23 @@ variable "use_fargate_spot" {
   type        = bool
   default     = true
 }
+
+# --- HTTPS関連 ---
+# 証明書とホストゾーンはコンソールで作成済みの長寿命リソース。
+# Terraform管理外なので、ARN/IDを変数で受け取る(terraform.tfvarsに記載)
+
+variable "domain_name" {
+  description = "APIの公開ドメイン名(ACM証明書のドメインと一致させること)"
+  type        = string
+  default     = "turbofan-api.parabolaorbit-dev.net"
+}
+
+variable "certificate_arn" {
+  description = "ACM証明書のARN(ALBと同一リージョンで発行済み・ISSUED状態であること)"
+  type        = string
+}
+
+variable "hosted_zone_id" {
+  description = "Route53ホストゾーンID(parabolaorbit-dev.net)"
+  type        = string
+}

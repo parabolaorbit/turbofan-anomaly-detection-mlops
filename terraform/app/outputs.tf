@@ -4,7 +4,12 @@
 # ------------------------------------------------------------
 
 output "api_url" {
-  value = "http://${aws_lb.main.dns_name}"
+  value = "https://${var.domain_name}"
+}
+
+output "alb_dns_name" {
+  description = "ALB直接のDNS名(DNS伝播前の疎通確認用。証明書名不一致になるためHTTPSでは使わない)"
+  value       = aws_lb.main.dns_name
 }
 
 output "cluster_name" {

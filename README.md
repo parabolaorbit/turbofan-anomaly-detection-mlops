@@ -52,6 +52,7 @@ LSTM AutoEncoderによる異常検知システムです。
 - 監視:  Streamlit ダッシュボードで Severity・異常スコア・レイテンシを可視化
 - デプロイ: Docker Compose でワンコマンド起動
 - CI: GitHub Actions + pytest (PostgreSQL サービスコンテナ使用) 
+- CD: GitHub Actions で ECR へイメージを push し、ECS サービスを再デプロイ(main ブランチ push 時)
 
 ## Dashboard
 
@@ -116,6 +117,7 @@ streamlit run scripts/dashboard.py
 ├── core/
 │   ├── config.py               # pydantic-settings による設定管理 (.env / 環境変数)
 │   ├── security.py             # API Key 認証 (X-API-Key ヘッダー検証)
+│   ├── const.py                # OpenAPI レスポンス例などの定数定義
 │   ├── exceptions.py           # レート制限・内部エラーの例外ハンドラ
 │   └── logging_config.py       # 構造化ログ設定
 ├── monitoring/
@@ -134,6 +136,8 @@ streamlit run scripts/dashboard.py
 │   ├── inference.py            # 前処理・推論・アラート判定
 │   ├── dataset.py              # データロード・シーケンス生成
 │   ├── metrics.py              # 再構成誤差計算
+│   ├── utils.py                # ロギング初期化などの共通ユーティリティ
+│   ├── dashboard.py            # (旧) 簡易 Streamlit UI
 │   ├── prediction_logger.py    # (旧) JSONL ログ
 │   └── sqlite_logger.py        # (旧) SQLite 直書きログ
 ├── scripts/
@@ -148,21 +152,28 @@ streamlit run scripts/dashboard.py
 │   ├── docker-compose.yml      # anomaly-api + anomaly-db + prometheus + grafana
 │   ├── Dockerfile
 │   └── prometheus/             # Prometheus 設定 (prometheus.yml)
-├── terraform/                  # AWS インフラ定義 (main.tf / variables.tf / outputs.tf)
+├── terraform/                  # AWS インフラ定義 (3層構成、運用手順は terraform/README.md)
+│   ├── foundation/             # VPC / SG / ECR / IAM / シークレット (常設)
+│   ├── data/                   # RDS PostgreSQL / 接続用シークレット
+│   └── app/                    # ECS / ALB / タスク定義
 ├── config/
 │   └── config.yaml             # モデル・推論パラメータ
 ├── data/
 │   └── raw/                    # NASA CMAPSS データ (train_FD001.txt 等)
 ├── docs/
 │   ├── system_diagram.md       # Mermaid 構成図
-│   ├── architecture.md         # アーキテクチャ解説
-│   └── cloud_deployment.md     # AWS デプロイ手順
+│   ├── architecture.md         # アーキテクチャ解説 (v1)
+│   ├── architecture_v2.md      # アーキテクチャ解説 (AWS 構成含む最新版)
+│   ├── cloud_deployment.md     # AWS デプロイ手順
+│   └── *.md                    # ECR / ECS / CloudWatch / Secrets Manager / Terraform 基礎メモ
 ├── notebooks/
 │   └── EDA.ipynb               # 探索的データ分析
 ├── tests/
 │   ├── api/                    # API テスト (TestClient)
 │   └── services/               # Service 層ユニットテスト
-├── .github/workflows/ci.yml    # GitHub Actions CI
+├── .github/workflows/
+│   ├── ci.yml                  # GitHub Actions CI (pytest)
+│   └── deployment.yml          # ECR への push + ECS 再デプロイ
 ├── pytest.ini
 └── requirements.txt
 ```
@@ -257,17 +268,21 @@ curl -X POST http://localhost:8080/predict \
 ```
 
 `seq_len=10` の場合、同じ `unit_number` のデータが最低 10 行必要です。
+※ `data/sample_request.json` はリポジトリに含まれていません。
+[scripts/test_api_manual.py](scripts/test_api_manual.py) のペイロードを参考に作成してください。
 
 ## Manual API Test
 
-`scripts/test_api_manual.py` は `.env` の `API_KEY` を `X-API-Key` ヘッダーに付与してリクエストします。
+`scripts/test_api_manual.py` は正常系・欠損カラム・型不正・空 sequence の 4 パターンを
+`http://localhost:8080/predict` に投げて応答を表示します
+(現状 `X-API-Key` ヘッダーは付与しないため、認証エラー系の確認にも使えます)。
 ```bash
 python scripts/test_api_manual.py
 ```
 
 ## Batch Prediction
 
-入力CSV:
+入力CSV(リポジトリには含まれないため、事前に用意します):
 
 ```text
 data/test_sequence.csv
@@ -340,7 +355,7 @@ API リクエストボディでも上書きできます。
 - [x] Structured Logging
 - [x] GitHub Actions
 - [x] Terraform
-- [ ] ECS Deployment
+- [x] ECS Deployment (ECS Fargate + ALB、Terraform 3層構成)
 
 
 ## Notes
