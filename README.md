@@ -15,6 +15,8 @@ LSTM AutoEncoderによる異常検知システムです。
 
 単なる機械学習モデルではなく、下記を統合した MLOps プラットフォームとして構築しています。
 
+![architecture](docs/20260722_turbofan_architecture.png)
+
 - FastAPI API
 - PostgreSQL
 - MLflow Model Registry
@@ -356,6 +358,9 @@ API リクエストボディでも上書きできます。
 - [x] GitHub Actions
 - [x] Terraform
 - [x] ECS Deployment (ECS Fargate + ALB、Terraform 3層構成)
+
+# ビジネス的価値
+このプロジェクトはモデルトレーニングからプロダクションへのデプロイおよびモニタリングまで、E2EのAIプラットフォームの設計を示します。
 
 
 ## Notes
